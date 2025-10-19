@@ -1,0 +1,308 @@
+---
+title: "Análise de Séries Temporais: Exercícios de Econometria"
+author: "Lucas"
+date: "`r format(Sys.Date(), '%d de %B de %Y')`"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    theme: united
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+# Configuração global dos chunks do R Markdown
+# echo = TRUE: mostra o código
+# message = FALSE: oculta mensagens de pacotes
+# warning = FALSE: oculta avisos
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Introdução
+
+Este documento apresenta a resolução de uma série de exercícios de econometria focados em análise de séries temporais. O objetivo é explorar desde a construção de testes estatísticos de baixo nível até a especificação e o diagnóstico de modelos ARIMA, utilizando a linguagem R.
+
+Abordaremos os seguintes tópicos:
+1.  **Implementação Manual do Teste de Ljung-Box**: Para testar a presença de autocorrelação.
+2.  **Cálculo Manual de Critérios de Informação (AIC/BIC)**: Para seleção de modelos autorregressivos.
+3.  **Tratamento de Séries Não-Estacionárias**: Análise de uma série com tendência e sazonalidade.
+4.  **Modelagem ARIMA**: Especificação e diagnóstico completo de um modelo para dados econômicos.
+
+---
+
+## Exercício 7: Teste de Autocorrelação (Ljung-Box)
+
+Neste exercício, o objetivo é realizar o teste de autocorrelação em diferentes séries temporais. Para um entendimento profundo do mecanismo do teste, começamos por implementar a estatística de Ljung-Box "na força bruta", sem depender de funções prontas.
+
+### 1. Construção da Função `teste_ljung_box_manual`
+
+A função abaixo calcula a estatística Q de Ljung-Box, que segue a fórmula: $Q = n(n+2) \sum_{j=1}^{k} \frac{\hat{\rho}_j^2}{n-j}$.
+
+```{r ljung_box_function}
+teste_ljung_box_manual <- function(serie, k) { # serie e qttd de lags
+  n <- length(serie)
+  media_serie <- mean(serie)
+  autocorrelacoes <- numeric(k) # Vetor para guardar as autocorrelações
+
+  # Calcula a variância (autocovariância no lag 0)
+  gamma_0 <- sum((serie - media_serie)^2) / n
+
+  # Loop para calcular a autocovariância e autocorrelação para cada lag j
+  for (j in 1:k) {
+    termo1 <- serie[(j+1):n] - media_serie
+    termo2 <- serie[1:(n-j)] - media_serie
+    gamma_j <- sum(termo1 * termo2) / n
+    autocorrelacoes[j] <- gamma_j / gamma_0
+  }
+
+  # Calcula a estatística Q de Ljung-Box
+  soma_Q <- sum(autocorrelacoes^2 / (n - (1:k)))
+  estatistica_Q <- n * (n + 2) * soma_Q
+
+  # Calcula o p-valor usando a distribuição Qui-Quadrado com 'k' graus de liberdade
+  p_valor <- pchisq(estatistica_Q, df = k, lower.tail = FALSE)
+  
+  return(list(Q = estatistica_Q, p_valor = p_valor))
+}
+```
+
+### 2. Aplicação da Função
+
+#### (I) Teste na série $y_t \sim ARIMA(1,1,1)$
+
+Primeiro, simulamos uma série não estacionária e aplicamos o teste. A hipótese nula (H₀) do teste de Ljung-Box é que não há autocorrelação.
+
+```{r test_arima}
+# Gerando a série y_t
+set.seed(123)
+modelo_arima <- list(order = c(1, 1, 1), ar = 0.8, ma = -0.4)
+y_t <- arima.sim(model = modelo_arima, n = 500)
+
+# Testando com lags 1 e 5
+resultado_y_lag1 <- teste_ljung_box_manual(y_t, k = 1)
+resultado_y_lag5 <- teste_ljung_box_manual(y_t, k = 5)
+
+cat("--- Teste em y_t (ARIMA) ---\n")
+cat("Lag = 1: p-valor =", resultado_y_lag1$p_valor, "\n")
+cat("Lag = 5: p-valor =", resultado_y_lag5$p_valor, "\n")
+```
+
+**Interpretação:** Os p-valores são extremamente baixos. Com um nível de significância de 5%, **rejeitamos a H₀**. A conclusão é que a série $y_t$ possui autocorrelação significativa, como esperado de um processo ARIMA.
+
+#### (II) Teste em uma série Ruído Branco $z_t$
+
+Agora, aplicamos o teste a uma série de ruído branco, que, por definição, não deve ter autocorrelação.
+
+```{r test_white_noise}
+# Gerando a série z_t (Ruído Branco)
+set.seed(456)
+z_t <- rnorm(n = 200, mean = 0, sd = sqrt(5))
+
+# Testando com lags 1 e 5
+resultado_z_lag1 <- teste_ljung_box_manual(z_t, k = 1)
+resultado_z_lag5 <- teste_ljung_box_manual(z_t, k = 5)
+
+cat("--- Teste em z_t (Ruído Branco) ---\n")
+cat("Lag = 1: p-valor =", resultado_z_lag1$p_valor, "\n")
+cat("Lag = 5: p-valor =", resultado_z_lag5$p_valor, "\n")
+```
+
+**Interpretação:** Os p-valores são altos (bem maiores que 0.05). Portanto, **não rejeitamos a H₀**. Concluímos que não há evidência de autocorrelação, o que está correto para um ruído branco.
+
+---
+
+## Seleção de Modelos com AIC e BIC
+
+Aqui, implementamos uma função para calcular os critérios de informação AIC e BIC para diferentes ordens de modelos AR(p), com o objetivo de encontrar o modelo mais parcimonioso.
+
+### 1. Função `calcular_aic_bic_manual`
+
+```{r aic_bic_function}
+calcular_aic_bic_manual <- function(serie, p) {
+  serie <- na.omit(as.numeric(serie))
+  n_total <- length(serie)
+
+  if (p == 0) {
+    modelo <- lm(serie ~ 1)
+    n <- n_total
+    k <- 1
+  } else {
+    dados_regressao <- embed(serie, p + 1)
+    y_t <- dados_regressao[, 1]
+    lags <- dados_regressao[, -1]
+    modelo <- lm(y_t ~ lags)
+    n <- nrow(dados_regressao)
+    k <- p + 1
+  }
+
+  sqr <- sum(residuals(modelo)^2)
+  aic <- 2 * k + n * log(sqr / n)
+  bic <- k * log(n) + n * log(sqr / n)
+  
+  return(data.frame(p = p, AIC = aic, BIC = bic))
+}
+```
+
+### 2. Aplicação da Função
+
+#### (I) Análise do Random Walk
+
+A primeira diferença de um *random walk* é um ruído branco. Esperamos que os critérios identifiquem um modelo AR(0) como o melhor.
+
+```{r aic_bic_rw}
+set.seed(908293847)
+eps <- rnorm(200)
+serie_rw_diff <- diff(cumsum(eps))
+
+resultados_rw <- do.call(rbind, lapply(0:5, function(p) calcular_aic_bic_manual(serie_rw_diff, p)))
+
+cat("--- Resultados para a série diferenciada do Random Walk ---\n")
+print(resultados_rw)
+cat("\nMelhor modelo (menor valor): AIC -> p=", resultados_rw$p[which.min(resultados_rw$AIC)], 
+    "| BIC -> p=", resultados_rw$p[which.min(resultados_rw$BIC)], "\n")
+```
+
+**Interpretação:** Ambos os critérios atingem seu valor mínimo em **p=0**, identificando corretamente que a série diferenciada é um ruído branco.
+
+#### (II) Análise de um processo AR(2)
+
+Agora, simulamos um processo AR(2) e verificamos se os critérios conseguem identificar a ordem correta.
+
+```{r aic_bic_ar2}
+set.seed(42)
+serie_ar2 <- as.numeric(stats::filter(rnorm(200), c(0.8, -0.3), "recursive"))
+
+resultados_ar2 <- do.call(rbind, lapply(0:5, function(p) calcular_aic_bic_manual(serie_ar2, p)))
+
+cat("\n--- Resultados para a série AR(2) ---\n")
+print(resultados_ar2)
+cat("\nMelhor modelo (menor valor): AIC -> p=", resultados_ar2$p[which.min(resultados_ar2$AIC)], 
+    "| BIC -> p=", resultados_ar2$p[which.min(resultados_ar2$BIC)], "\n")
+```
+
+**Interpretação:** Tanto o AIC quanto o BIC atingem seu valor mínimo em **p=2**, identificando com sucesso a ordem correta do processo.
+
+---
+
+## Exercício 8: Análise de Série Sazonal
+
+Este exercício aborda o tratamento da série `a10` (vendas de medicamentos), que apresenta tendência e sazonalidade com variância crescente.
+
+```{r ex8_plots, fig.width=8, fig.height=10}
+# Carregando pacotes. fpp2 contém o dataset a10.
+library(fpp2)
+library(ggplot2)
+library(patchwork)
+library(dplyr)
+library(timetk)
+
+# Preparando os dados para ggplot2
+dados_a10_df <- tk_tbl(a10, rename_index = "data") %>%
+  rename(vendas = value)
+
+# Gráfico 1: Série Original
+p1 <- ggplot(dados_a10_df, aes(x = data, y = vendas)) + geom_line(color = "steelblue") +
+  labs(title = "1. Série Original (a10)", subtitle = "Tendência e variância crescentes.")
+
+# Gráfico 2: Logaritmo da Série
+dados_a10_df$log_vendas <- log(dados_a10_df$vendas)
+p2 <- ggplot(dados_a10_df, aes(x = data, y = log_vendas)) + geom_line(color = "darkgreen") +
+  labs(title = "2. Série em Logaritmo", subtitle = "Variância estabilizada.")
+
+# Gráfico 3: Diferença Sazonal da Série em Log
+dados_a10_df$diff_sazonal_log <- c(rep(NA, 12), diff(dados_a10_df$log_vendas, lag = 12))
+p3 <- ggplot(na.omit(dados_a10_df), aes(x = data, y = diff_sazonal_log)) + geom_line(color = "firebrick") +
+  labs(title = "3. Diferença Sazonal da Série em Log", subtitle = "Série agora parece estacionária.")
+
+# Combinando os gráficos
+(p1 / p2 / p3)
+```
+
+**Interpretação:**
+1.  **Série Original**: Mostra tendência de crescimento e padrão sazonal com amplitude crescente.
+2.  **Série em Logaritmo**: Estabiliza a variância.
+3.  **Diferença Sazonal**: Remove a tendência e a sazonalidade, resultando em uma série estacionária pronta para modelagem.
+
+---
+
+## Exercícios 9 & 10: Modelagem ARIMA Completa
+
+Estes exercícios cobrem o fluxo completo: especificação, estimação e diagnóstico de um modelo para os dados de consumo dos EUA. Usamos o pacote moderno `fpp3` e o dataset `us_change`.
+
+### 1. Análise e Especificação do Modelo (Ex. 9)
+
+Analisamos a série `us_change`, que representa a variação percentual do consumo.
+
+```{r ex9_plot}
+library(fpp3)
+
+# O dado 'us_change' já é a variação percentual, que tende a ser estacionária.
+autoplot(us_change, Consumption) +
+  labs(title = "Variação Percentual do Consumo Pessoal nos EUA",
+       subtitle = "Série já parece estacionária",
+       y = "Variação Percentual (%)")
+```
+
+**Conclusão inicial:** A série já é estacionária e não precisa de diferenciação (d=0). Vamos analisar suas autocorrelações para sugerir as ordens `p` e `q`.
+
+```{r ex9_acf_pacf}
+# ggtsdisplay é ideal para visualizar a série e suas autocorrelações
+# Usamos $ para selecionar a coluna e passar uma série univariada
+ggtsdisplay(us_change$Consumption, lag_max = 20)
+```
+
+**Interpretação:** O padrão misto (decaimento em ambas as funções) sugere um modelo **ARMA(p, q)**.
+
+### 2. Estimação e Diagnóstico do Modelo (Ex. 10)
+
+Usamos a função `ARIMA()` do `fpp3` para encontrar o melhor modelo automaticamente e, em seguida, realizamos um diagnóstico completo de seus resíduos.
+
+```{r ex10_model_fit}
+# Ajusta o melhor modelo ARIMA automaticamente
+modelo_final <- us_change %>%
+  model(ARIMA(Consumption))
+
+# Exibe os coeficientes do modelo escolhido
+report(modelo_final)
+```
+
+**Modelo Selecionado:** A função escolheu um modelo ARIMA(1,0,2) com média, ou seja, um ARMA(1,2), confirmando nossas suspeitas.
+
+#### Análise Gráfica dos Resíduos
+
+Os resíduos de um bom modelo devem se comportar como ruído branco.
+
+```{r ex10_residual_plots, fig.height=6}
+# gg_tsresiduals cria um painel completo de diagnóstico
+gg_tsresiduals(modelo_final, lag_max = 20) +
+  labs(title = "Diagnóstico Gráfico dos Resíduos")
+```
+
+**Interpretação Gráfica:** Os resíduos parecem aleatórios, sem autocorrelação (barras da ACF dentro dos limites) e com distribuição aproximadamente normal (histograma).
+
+#### Testes Estatísticos Formais
+
+```{r ex10_formal_tests}
+# Teste de Ljung-Box (Autocorrelação)
+# H₀: Resíduos são independentes. Queremos p-valor alto.
+ljung_box_result <- residuals(modelo_final) %>%
+  features(.resid, ljung_box, lag = 20)
+cat("--- Teste de Ljung-Box ---\n")
+print(ljung_box_result)
+
+# Teste de Jarque-Bera (Normalidade)
+# H₀: Resíduos são normalmente distribuídos. Queremos p-valor alto.
+if (!require("tseries")) install.packages("tseries")
+library(tseries)
+jb_test_result <- jarque.bera.test(residuals(modelo_final)$.resid)
+cat("\n--- Teste de Jarque-Bera ---\n")
+print(jb_test_result)
+```
+
+**Interpretação dos Testes:**
+-   **Ljung-Box:** O p-valor (`lb_pvalue`) é alto, então não rejeitamos a H₀. Os resíduos não têm autocorrelação.
+-   **Jarque-Bera:** O p-valor é alto, então não rejeitamos a H₀. A suposição de normalidade é válida.
+
+### Conclusão Final
+
+O modelo ARIMA(1,0,2) ajustado **passou em todos os testes de diagnóstico**. Seus resíduos se comportam como um ruído branco gaussiano, indicando que o modelo capturou adequadamente a estrutura de dependência temporal dos dados. Portanto, ele é considerado **adequado e confiável**.
