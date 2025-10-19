@@ -5,7 +5,7 @@ import sys
 def personalizar_html(caminho_html_original):
     # DADOS FORNECIDOS PELO USUÁRIO (Use r'...' para caminhos do Windows)
     CAMINHO_FAVICON = r"C:\Users\LucasRafaeldeAndrade\Desktop\Repositorios\R-inferencia-em-series-temporais\img\eyezen.ico"
-    CAMINHO_LOGO = r"C:\Users\LucasRafaeldeAndrade\Desktop\Repositorios\R-inferencia-em-series-temporais\img\Logo.png"
+    CAMINHO_LOGO = r"C:\Users\LucasRafaeldeAndrade\Desktop\Repositorios\R-inferencia-em-series-temporais\img\Logo_inv.png"
 
     # Verificacoes iniciais de caminho
     if not os.path.exists(caminho_html_original):
@@ -105,10 +105,10 @@ tr:nth-child(even) {
     
     # --- 4. Injetar um Cabecalho Profissional (Dark Mode Header) ---
     
-    # CSS inline para o cabecalho (Ajustado para Dark Mode)
-    header_style = "display: flex; align-items: center; padding: 20px 40px; background-color: #1a1a1a; color: #EAEAEA; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.7);"
-    logo_style = "height: 60px; margin-right: 25px; border-radius: 8px;" # Aumentado para 60px
-    titulo_style = "font-size: 2em; font-weight: 700; color: #00BFFF; letter-spacing: 1px; text-shadow: 1px 1px 3px rgba(0, 191, 255, 0.3);"
+    # CSS inline para o cabecalho (Ajustado para Dark Mode e Logo Maior)
+    header_style = "display: flex; align-items: center; padding: 15px 30px; background-color: #1a1a1a; color: #EAEAEA; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.7);"
+    logo_style = "height: 90px; margin-right: 25px; border-radius: 8px;" # AUMENTADO para 90px
+    titulo_style = "font-size: 1.6em; font-weight: 700; color: #00BFFF; letter-spacing: 1px; text-shadow: 1px 1px 3px rgba(0, 191, 255, 0.3);" # REDUZIDO para 1.6em
     
     # Cria a tag <img> para a logo
     logo_img = soup.new_tag('img', src=CAMINHO_LOGO, style=logo_style)
@@ -151,15 +151,15 @@ tr:nth-child(even) {
 
     # --- 5. Salvar o novo arquivo HTML ---
     
-    # Define o nome do arquivo de saída (sufixo '_profissional_dark.html')
+    # Define o nome do arquivo de saída (sufixo '_profissional_dark_v2.html')
     nome_base, ext = os.path.splitext(os.path.basename(caminho_html_original))
-    caminho_saida = os.path.join(os.path.dirname(caminho_html_original), f"{nome_base}_profissional_dark{ext}")
+    caminho_saida = os.path.join(os.path.dirname(caminho_html_original), f"{nome_base}_profissional_dark_v2{ext}")
 
     with open(caminho_saida, 'w', encoding='utf-8') as f:
         f.write(str(soup))
         
     print("-" * 50)
-    print(f"Design Dark Mode aplicado! O novo arquivo foi salvo em:")
+    print(f"Design Dark Mode V2 aplicado! O novo arquivo foi salvo em:")
     print(caminho_saida)
     print("-" * 50)
 
