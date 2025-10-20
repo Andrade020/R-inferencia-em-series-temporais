@@ -32,7 +32,7 @@ Abordaremos os seguintes tópicos:
 
 ## Exercício 7: Teste de Autocorrelação (Ljung-Box)
 
-Neste exercício, o objetivo é realizar o teste de autocorrelação em diferentes séries temporais. Para um entendimento profundo do mecanismo do teste, começamos por implementar a estatística de Ljung-Box "na força bruta", sem depender de funções prontas.
+Aqui, o objetivo é realizar o teste de autocorrelação em diferentes séries temporais. 
 
 ### 1. Construção da Função `teste_ljung_box_manual`
 
@@ -262,47 +262,82 @@ Usamos a função `ARIMA()` do `fpp3` para encontrar o melhor modelo automaticam
 modelo_final <- us_change %>%
   model(ARIMA(Consumption))
 
-# Exibe os coeficientes do modelo escolhido
-report(modelo_final)
+library(fpp3)
+
+# Ajustando os dois modelos em um único comando
+comparacao_modelos <- us_change %>%
+  model(
+    # Modelo 1: Deixa o R escolher o melhor modelo (provavelmente SARIMA)
+    modelo_automatico = ARIMA(Consumption),
+    
+    # Modelo 2: Força um modelo não-sazonal
+    # A mágica está em PDQ(0,0,0), que desliga a parte sazonal
+    modelo_nao_sazonal = ARIMA(Consumption ~ PDQ(0,0,0))
+  )
+
+# --- Análise dos Resultados ---
+
+# 1. Veja o relatório do modelo automático (o SARIMA)
+cat("--- Modelo Automático (SARIMA) ---\n")
+report(comparacao_modelos %>% select(modelo_automatico))
+
+# 2. Veja o relatório do modelo forçado (ARIMA não-sazonal)
+cat("\n\n--- Modelo Forçado (ARIMA Não-Sazonal) ---\n")
+report(comparacao_modelos %>% select(modelo_nao_sazonal))
 ```
 
-**Modelo Selecionado:** A função escolheu um modelo ARIMA(1,0,2) com média, ou seja, um ARMA(1,2), confirmando nossas suspeitas.
-
+**Modelo Selecionado:** A função escolheu um modelo ARIMA(1,0,3)
 #### Análise Gráfica dos Resíduos
 
 Os resíduos de um bom modelo devem se comportar como ruído branco.
 
-```{r ex10_residual_plots, fig.height=6}
-# gg_tsresiduals cria um painel completo de diagnóstico
-gg_tsresiduals(modelo_final, lag_max = 20) +
-  labs(title = "Diagnóstico Gráfico dos Resíduos")
+```{r ex10_residual_plots_nonseasonal, fig.height=6}
+# Carregamos a biblioteca principal
+library(fpp3)
+
+# Ajustamos o modelo ARIMA NÃO-SAZONAL
+modelo_nao_sazonal <- us_change %>%
+  model(ARIMA(Consumption ~ PDQ(0,0,0)))
+
+# Geramos os gráficos de diagnóstico para o modelo NÃO-SAZONAL
+gg_tsresiduals(modelo_nao_sazonal, lag_max = 20) +
+  labs(title = "Diagnóstico Gráfico dos Resíduos (Modelo Não-Sazonal)")
 ```
 
 **Interpretação Gráfica:** Os resíduos parecem aleatórios, sem autocorrelação (barras da ACF dentro dos limites) e com distribuição aproximadamente normal (histograma).
 
 #### Testes Estatísticos Formais
 
-```{r ex10_formal_tests}
-# Teste de Ljung-Box (Autocorrelação)
-# H₀: Resíduos são independentes. Queremos p-valor alto.
-ljung_box_result <- residuals(modelo_final) %>%
-  features(.resid, ljung_box, lag = 20)
-cat("--- Teste de Ljung-Box ---\n")
+#### 3.4. Validação do Modelo Simplificado (Não-Sazonal)
+
+Para avaliar a necessidade do componente sazonal, ajustamos um modelo ARIMA forçado a ser não-sazonal e realizamos os mesmos testes de diagnóstico.
+
+```{r ex10_formal_tests_nonseasonal}
+# Carregamos a biblioteca principal
+library(fpp3)
+
+# Ajustamos o modelo ARIMA NÃO-SAZONAL
+modelo_nao_sazonal <- us_change %>%
+  model(ARIMA(Consumption ~ PDQ(0,0,0)))
+
+# Exibimos o relatório
+report(modelo_nao_sazonal)
+
+# Extraímos os resíduos
+residuos_nao_sazonais <- residuals(modelo_nao_sazonal)
+
+# Teste de Ljung-Box
+ljung_box_result <- residuos_nao_sazonais %>% features(.resid, ljung_box, lag = 20)
+cat("\n--- Teste de Ljung-Box (Modelo Não-Sazonal) ---\n")
 print(ljung_box_result)
 
-# Teste de Jarque-Bera (Normalidade)
-# H₀: Resíduos são normalmente distribuídos. Queremos p-valor alto.
-if (!require("tseries")) install.packages("tseries")
+# Teste de Jarque-Bera
 library(tseries)
-jb_test_result <- jarque.bera.test(residuals(modelo_final)$.resid)
-cat("\n--- Teste de Jarque-Bera ---\n")
+jb_test_result <- jarque.bera.test(residuos_nao_sazonais$.resid)
+cat("\n--- Teste de Jarque-Bera (Modelo Não-Sazonal) ---\n")
 print(jb_test_result)
 ```
-
 **Interpretação dos Testes:**
--   **Ljung-Box:** O p-valor (`lb_pvalue`) é alto, então não rejeitamos a H₀. Os resíduos não têm autocorrelação.
--   **Jarque-Bera:** O p-valor é alto, então não rejeitamos a H₀. A suposição de normalidade é válida.
+
 
 ### Conclusão Final
-
-O modelo ARIMA(1,0,2) ajustado **passou em todos os testes de diagnóstico**. Seus resíduos se comportam como um ruído branco gaussiano, indicando que o modelo capturou adequadamente a estrutura de dependência temporal dos dados. Portanto, ele é considerado **adequado e confiável**.

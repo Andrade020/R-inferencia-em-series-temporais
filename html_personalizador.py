@@ -1,13 +1,51 @@
 import os
-from bs4 import BeautifulSoup
 import sys
+import base64 # Novo módulo para Base64
+from bs4 import BeautifulSoup
+
+def file_to_base64(filepath):
+    """Lê um arquivo de imagem e o converte para uma string Base64 Data URI."""
+    if not os.path.exists(filepath):
+        print(f"Aviso: Arquivo de imagem não encontrado em '{filepath}'. Pulando Base64.")
+        return None, None
+    
+    # Mapeamento simples de extensão para MIME type
+    ext = os.path.splitext(filepath)[1].lower()
+    if ext == '.ico':
+        mime = 'image/x-icon'
+    elif ext in ('.png'):
+        mime = 'image/png'
+    elif ext in ('.jpg', '.jpeg'):
+        mime = 'image/jpeg'
+    else:
+        print(f"Aviso: Extensão '{ext}' desconhecida. Usando 'application/octet-stream'.")
+        mime = 'application/octet-stream'
+
+    try:
+        with open(filepath, 'rb') as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+        data_uri = f"data:{mime};base64,{encoded_string}"
+        return data_uri, mime
+    except Exception as e:
+        print(f"Erro ao converter Base64 para '{filepath}': {e}")
+        return None, None
+
 
 def personalizar_html(caminho_html_original):
-    # DADOS FORNECIDOS PELO USUÁRIO (Use r'...' para caminhos do Windows)
+    # DADOS FORNECIDOS PELO USUÁRIO (Caminhos ajustados para Base64)
+    # ATENÇÃO: Usei .jpg para o logo, conforme o arquivo que você subiu
     CAMINHO_FAVICON = r"C:\Users\LucasRafaeldeAndrade\Desktop\Repositorios\R-inferencia-em-series-temporais\img\eyezen.ico"
     CAMINHO_LOGO = r"C:\Users\LucasRafaeldeAndrade\Desktop\Repositorios\R-inferencia-em-series-temporais\img\Logo_inv.png"
 
-    # Verificacoes iniciais de caminho
+    # Conversão das imagens para Base64
+    base64_logo, _ = file_to_base64(CAMINHO_LOGO)
+    base64_favicon, mime_favicon = file_to_base64(CAMINHO_FAVICON)
+
+    if not base64_logo or not base64_favicon:
+        print("Finalizando, pois não foi possível carregar todas as imagens.")
+        return
+
+    # Verificacoes iniciais de caminho do HTML
     if not os.path.exists(caminho_html_original):
         print(f"Erro: Arquivo HTML não encontrado em '{caminho_html_original}'")
         return
@@ -22,14 +60,15 @@ def personalizar_html(caminho_html_original):
 
     soup = BeautifulSoup(conteudo_html, 'html.parser')
     head = soup.find('head')
+    body = soup.find('body')
     
-    if not head:
-        print("Erro: Não foi possível encontrar a tag <head> no HTML.")
+    if not head or not body:
+        print("Erro: Estrutura HTML incompleta (<head> ou <body> não encontrados).")
         return
 
     # --- 2. Inserir Estilos Dark Mode e Tipografia (Inter) na tag <head> ---
     
-    # CSS completo para Dark Mode e tipografia Inter
+    # CSS completo para Dark Mode e tipografia Inter (mantido o estilo V2)
     css_dark_mode = """
 <style>
 /* 1. Tipografia (Inter) */
@@ -95,25 +134,27 @@ tr:nth-child(even) {
 """
     head.append(BeautifulSoup(css_dark_mode, 'html.parser'))
     
-    # --- 3. Inserir o Favicon ---
+    # --- 3. Inserir o Favicon (Agora em Base64) ---
     
+    # Remove qualquer favicon existente
     for link in soup.find_all('link', rel='icon'):
         link.decompose()
         
-    novo_favicon = soup.new_tag('link', rel='icon', href=CAMINHO_FAVICON, type='image/x-icon')
+    # Adiciona o novo favicon codificado em Base64
+    novo_favicon = soup.new_tag('link', rel='icon', href=base64_favicon, type=mime_favicon)
     head.append(novo_favicon)
     
-    # --- 4. Injetar um Cabecalho Profissional (Dark Mode Header) ---
+    # --- 4. Injetar um Cabecalho Profissional com Logo em Base64 ---
     
-    # CSS inline para o cabecalho (Ajustado para Dark Mode e Logo Maior)
+    # CSS inline para o cabecalho (Estilo V2)
     header_style = "display: flex; align-items: center; padding: 15px 30px; background-color: #1a1a1a; color: #EAEAEA; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.7);"
-    logo_style = "height: 90px; margin-right: 25px; border-radius: 8px;" # AUMENTADO para 90px
-    titulo_style = "font-size: 1.6em; font-weight: 700; color: #00BFFF; letter-spacing: 1px; text-shadow: 1px 1px 3px rgba(0, 191, 255, 0.3);" # REDUZIDO para 1.6em
+    logo_style = "height: 90px; margin-right: 25px; border-radius: 8px;" # Mantido 90px
+    titulo_style = "font-size: 1.6em; font-weight: 700; color: #00BFFF; letter-spacing: 1px; text-shadow: 1px 1px 3px rgba(0, 191, 255, 0.3);" # Mantido 1.6em
     
-    # Cria a tag <img> para a logo
-    logo_img = soup.new_tag('img', src=CAMINHO_LOGO, style=logo_style)
+    # Cria a tag <img> com a Base64 URI
+    logo_img = soup.new_tag('img', src=base64_logo, style=logo_style, alt="Logo da Empresa")
     
-    # Tenta pegar o título do primeiro <h1> ou usa o <title> como fallback
+    # Tenta pegar o título
     titulo_relatorio = "Relatório de Séries Temporais"
     if soup.title and soup.title.string:
         titulo_relatorio = soup.title.string.replace('analise de series temporais: ', '').title()
@@ -127,40 +168,35 @@ tr:nth-child(even) {
     cabecalho_div.append(logo_img)
     cabecalho_div.append(titulo_span)
     
-    # Encontra o <body> e insere o cabecalho no inicio
-    body = soup.find('body')
-    if body:
-        # Insere como o primeiro elemento do body
-        body.insert(0, cabecalho_div)
-        
-        # Oculta elementos de titulo duplicados gerados pelo Rmd
-        title_row = soup.find('div', class_='title-row')
-        if title_row:
-             title_row['style'] = 'display: none !important;'
-        
-        # Oculta o titulo dentro do main-container
-        h1_intro = soup.find('h1', id='introduo')
-        if h1_intro:
-             h1_intro.decompose() # Remove o titulo 'Introdução' que é o primeiro
-             
-        # Remove a linha horizontal (HR) original do Rmd, se existir.
-        hr = soup.find('hr')
-        if hr:
-             hr.decompose()
+    # Insere o cabecalho no inicio do <body> e remove duplicatas
+    body.insert(0, cabecalho_div)
+    
+    title_row = soup.find('div', class_='title-row')
+    if title_row:
+         title_row['style'] = 'display: none !important;'
+    
+    h1_intro = soup.find('h1', id='introduo')
+    if h1_intro:
+         h1_intro.decompose()
+         
+    hr = soup.find('hr')
+    if hr:
+         hr.decompose()
 
 
     # --- 5. Salvar o novo arquivo HTML ---
     
-    # Define o nome do arquivo de saída (sufixo '_profissional_dark_v2.html')
+    # Define o nome do arquivo de saída (sufixo '_profissional_dark_b64.html')
     nome_base, ext = os.path.splitext(os.path.basename(caminho_html_original))
-    caminho_saida = os.path.join(os.path.dirname(caminho_html_original), f"{nome_base}_profissional_dark_v2{ext}")
+    caminho_saida = os.path.join(os.path.dirname(caminho_html_original), f"{nome_base}_profissional_dark_b64{ext}")
 
     with open(caminho_saida, 'w', encoding='utf-8') as f:
         f.write(str(soup))
         
     print("-" * 50)
-    print(f"Design Dark Mode V2 aplicado! O novo arquivo foi salvo em:")
+    print("Design Dark Mode com Base64 aplicado! O novo arquivo foi salvo em:")
     print(caminho_saida)
+    print("Seu relatório agora é totalmente portátil e não depende dos arquivos de imagem!")
     print("-" * 50)
 
 
