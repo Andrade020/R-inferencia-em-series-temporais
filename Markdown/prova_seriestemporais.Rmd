@@ -1,0 +1,289 @@
+---
+title: "Resolução da Prova Prática - Análise de Séries Temporais com R"
+author: "Lucas Rafael de Andrade"
+date: "14 de Novembro de 2025"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: united
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.align = 'center')
+```
+
+# Instruções Originais da Prova
+
+* **Ferramentas:** Utilize R e os pacotes necessários.
+* **Interpretação:** Mostre os outputs gerados e as interpretações detalhadas.
+* **Justificativa:** Justifique todas as conclusões estatisticamente (citando p-values, estatísticas de teste ou critérios).
+
+# Setup: Carregando os Pacotes
+
+Primeiro, instalamos (se necessário) e carregamos os pacotes que serão utilizados em toda a análise.
+
+**Observação:** O pacote `FinTS` também é incluído para o Teste ARCH-LM da Questão 2.
+
+```{r packages}
+# install.packages(c("tseries", "forecast", "lmtest", "urca", "FinTS"))
+
+library(tseries)
+library(forecast)
+library(lmtest)
+library(urca)
+library(FinTS) # Necessário para o ArchTest
+```
+
+---
+
+# QUESTÃO 1 - TESTES DE RAIZ UNITÁRIA
+
+## Dados
+
+Primeiro, geramos a série temporal `pib` conforme especificado no enunciado.
+
+```{r q1_data}
+set.seed(123)
+# Simula um passeio aleatório (raiz unitária) com leve drift
+pib <- cumsum(rnorm(100)) + 0.02*(1:100) + 100
+pib <- ts(pib)
+```
+
+Vamos visualizar a série gerada:
+
+```{r q1_plot, fig.width=8, fig.height=5}
+plot(pib, main = "Série PIB Simulado", ylab = "Nível do PIB", col = "blue", lwd = 2)
+```
+
+A inspeção visual sugere série não estacionária, talvez uma tendência estocástica (e um leve "drift" determinístico).
+
+## Tarefas: Execução e Interpretação dos Testes
+
+### 1. Testes Dickey-Fuller (DF) com `urca::ur.df`
+
+Executamos os três testes DF puros (sem lags de correção, `lags = 0`) usando o pacote `urca`.
+
+**Hipóteses (DF/ADF):**
+
+* **H0 (Hipótese Nula):** A série possui raiz unitária (não é estacionária).
+* **H1 (Hipótese Alternativa):** A série é estacionária.
+
+**Regra de Decisão:** Rejeitamos H0 se a estatística de teste (em valor absoluto) for maior que o valor crítico (em valor absoluto), ou seja, se a estatística de teste for "mais negativa" que o valor crítico.
+
+#### (i) Sem constante, sem tendência ($\tau$)
+
+```{r q1_df_none}
+# Usamos lags=0 para o teste DF simples
+df_none <- ur.df(pib, type = "none", lags = 0)
+summary(df_none)
+```
+
+* **Interpretação:** A estatística de teste (`r df_none@teststat[1]`) é *maior* (menos negativa) que o valor crítico a 5% (`r df_none@cval[1,2]`). Portanto, **não rejeitamos H0**.
+
+#### (ii) Com constante, sem tendência ($\tau_{\mu}$)
+
+```{r q1_df_drift}
+df_drift <- ur.df(pib, type = "drift", lags = 0)
+summary(df_drift)
+```
+
+* **Interpretação:** A estatística de teste (`r df_drift@teststat[1]`) é *maior* (menos negativa) que o valor crítico a 5% (`r df_drift@cval[1,2]`). Portanto, **não rejeitamos H0**.
+
+#### (iii) Com constante, com tendência ($\tau_{\tau}$)
+
+```{r q1_df_trend}
+df_trend <- ur.df(pib, type = "trend", lags = 0)
+summary(df_trend)
+```
+
+* **Interpretação:** A estatística de teste (`r df_trend@teststat[1]`) é *maior* (menos negativa) que o valor crítico a 5% (`r df_trend@cval[1,2]`). Portanto, **não rejeitamos H0**.
+
+### 2. Teste ADF (adf.test) com seleção automática de lags
+
+Este teste (`tseries::adf.test`) seleciona automaticamente o número de lags (defasagens) para corrigir a autocorrelação nos resíduos.
+
+**Regra de Decisão:** Rejeitamos H0 se o *p-value* for menor que o nível de significância (ex: $\alpha$ = 0.05).
+
+```{r q1_adf}
+adf_auto <- adf.test(pib)
+print(adf_auto)
+```
+
+* **Interpretação:** O *p-value* obtido é **`r adf_auto$p.value`**. Como `r adf_auto$p.value` $>$ 0.05, **não rejeitamos H0**. O teste ADF indica que a série possui uma raiz unitária.
+
+### 3. Teste KPSS (kpss.test)
+
+O teste KPSS inverte as hipóteses, servindo como uma ótima confirmação.
+
+**Hipóteses (KPSS):**
+
+* **H0 (Hipótese Nula):** A série é estacionária (em nível ou em torno de uma tendência).
+* **H1 (Hipótese Alternativa):** A série possui raiz unitária (não é estacionária).
+
+**Regra de Decisão:** Rejeitamos H0 se o *p-value* for menor que o nível de significância (ex: $\alpha$ = 0.05).
+
+Testamos os dois casos: estacionariedade em nível (`null = "Level"`) e estacionariedade em tendência (`null = "Trend"`).
+
+```{r q1_kpss}
+# Teste de estacionariedade em nível (padrão)
+kpss_mu <- kpss.test(pib, null = "Level", lshort = TRUE)
+print(kpss_mu)
+
+# Teste de estacionariedade em tendência
+kpss_tau <- kpss.test(pib, null = "Trend", lshort = TRUE)
+print(kpss_tau)
+```
+
+* **Interpretação (Nível):** O *p-value* obtido é **`r kpss_mu$p.value`**. Como `r kpss_mu$p.value` $<$ 0.05, **rejeitamos H0**. O teste indica que a série *não* é estacionária em nível.
+
+* **Interpretação (Tendência):** O *p-value* obtido é **`r kpss_tau$p.value`**. Como `r kpss_tau$p.value` $<$ 0.05, **rejeitamos H0**. O teste indica que a série *não* é estacionária em torno de uma tendência.
+
+### 4. Conclusão Final sobre a Estacionariedade
+
+A conclusão é unânime:
+
+1. Os três testes **Dickey-Fuller (DF)**, em todas as especificações, **não rejeitaram a hipótese nula** de raiz unitária.
+2. O teste **Augmented Dickey-Fuller (ADF)**, com seleção automática de lags, também **não rejeitou a hipótese nula** de raiz unitária (p-value = `r round(adf_auto$p.value, 4)`).
+3. O teste **KPSS**, que tem como hipótese nula a estacionariedade, **rejeitou a estacionariedade** tanto em nível (p-value = `r round(kpss_mu$p.value, 2)`) quanto em tendência (p-value = `r round(kpss_tau$p.value, 2)`).
+
+**Conclusão:** Há evidências estatísticas robustas e consistentes para afirmar que a série `pib` **não é estacionária** e possui uma raiz unitária.
+
+---
+
+# QUESTÃO 2 - IDENTIFICAÇÃO E DIAGNÓSTICO ARIMA
+
+## Dados
+
+Geramos a série `y`, que, pelo código-fonte, sabemos ser um processo ARMA(2,1).
+
+```{r q2_data}
+set.seed(456)
+n <- 250
+eps <- rnorm(n)
+y <- numeric(n)
+y[1:2] <- rnorm(2)
+for(t in 3:n) {
+    # Este é um processo ARMA(2,1)
+    y[t] <- 0.8*y[t-1] - 0.2*y[t-2] + 0.5*eps[t-1] + eps[t]
+}
+y <- ts(y)
+```
+
+Visualização da série:
+
+```{r q2_plot, fig.width=8, fig.height=5}
+plot(y, main = "Série ARMA(2,1) Simulada", ylab = "y", col = "darkgreen", lwd = 2)
+```
+
+A série parece oscilar em torno de uma média constante (próxima de zero), sugerindo estacionariedade ($d=0$).
+
+## Tarefas: Execução e Interpretação
+
+### (a) Identificação Visual (FAC e FACP)
+
+Plotamos as funções de autocorrelação (FAC) e autocorrelação parcial (FACP).
+
+```{r q2_acf_pacf, fig.width=10, fig.height=5}
+par(mfrow = c(1, 2))
+acf(y, main = "ACF da Série y")
+pacf(y, main = "PACF da Série y")
+par(mfrow = c(1, 1))
+```
+
+* **Interpretação da FAC (Função de Autocorrelação):** O gráfico da FAC mostra um decaimento, com múltiplos lags sendo estatisticamente significativos. A autocorrelação não "corta" abruptamente após um lag $q$.
+
+* **Interpretação da FACP (Função de Autocorrelação Parcial):** O gráfico da FACP também mostra um decaimento (talvez senoidal amortecido), com múltiplos lags significativos. Ela não "corta" abruptamente após um lag $p$.
+
+* **Conclusão Visual:** Quando nem a FAC nem a FACP apresentam um "corte" abrupto, mas ambas decaem, isso é a assinatura clássica de um processo **ARMA(p, q)** misto, onde $p > 0$ e $q > 0$. A série é estacionária, então $d=0$. A identificação visual exata da ordem (p, q) é difícil neste caso, mas sugere um modelo misto.
+
+### (b) Estimação do Modelo ARIMA(2,0,1)
+
+Estimamos o modelo `ARIMA(2,0,1)` (ARMA(2,1)), conforme sugerido (e sabendo ser o correto).
+
+```{r q2_arima}
+model_201 <- arima(y, order = c(2, 0, 1))
+print(model_201)
+```
+
+Para verificar a significância estatística dos coeficientes, usamos `lmtest::coeftest`.
+
+```{r q2_coeftest}
+# Verificando a significância (p-values)
+coef_test_result <- coeftest(model_201)
+print(coef_test_result)
+```
+
+* **Interpretação:** A saída da estimação mostra os coeficientes ar1 (`r round(coef(model_201)["ar1"], 4)`), ar2 (`r round(coef(model_201)["ar2"], 4)`) e ma1 (`r round(coef(model_201)["ma1"], 4)`) muito próximos dos valores simulados (0.8, -0.2, 0.5). O `coeftest` mostra que os termos AR(1), AR(2) e MA(1) são todos estatisticamente significativos (p-values $<$ 0.05). O intercepto não é significativo, o que está correto, pois a série foi simulada com média zero.
+
+### (c) Seleção Automática com `auto.arima()`
+
+Usamos a função `auto.arima()` do pacote `forecast` para encontrar o melhor modelo com base em critérios de informação (como AICc).
+
+```{r q2_auto_arima}
+model_auto <- auto.arima(y, trace = FALSE, stationary = TRUE, seasonal = FALSE)
+print(model_auto)
+```
+
+* **Comparação:** O `auto.arima()` **identificou erroneamente** o modelo correto como sendo **ARIMA(3,0,1)**. O resultado do `auto.arima()` nos faz questionar a sua eficácia, porém ainda está relativamente próximo .
+
+### (d) Diagnóstico de Resíduos do ARIMA(2,0,1)
+
+Analisamos os resíduos do `model_201` (estimado em (b)) para validar o modelo.
+
+```{r q2_residuals}
+res_201 <- model_201$residuals
+```
+
+#### Teste de Ljung-Box (Autocorrelação Serial)
+
+Testamos se os resíduos ainda possuem alguma autocorrelação não capturada.
+
+**Hipóteses:**
+
+* **H0:** Os resíduos são ruído branco (não há autocorrelação serial).
+* **H1:** Os resíduos não são ruído branco.
+
+**Regra de Decisão:** Queremos **não rejeitar H0** (p-value $>$ 0.05).
+
+*Nota: É crucial ajustar os graus de liberdade (`fitdf`) para o número de parâmetros estimados (p+q). Aqui, p=2 e q=1, então `fitdf = 3`.*
+
+```{r q2_ljung_box}
+# Teste de Ljung-Box
+# lag=10. Graus de liberdade (df) = lag - fitdf = 10 - 3 = 7
+ljung_box_test <- Box.test(res_201, lag = 10, type = "Ljung-Box", fitdf = 3)
+print(ljung_box_test)
+```
+
+* **Interpretação (Ljung-Box):** O *p-value* é **`r round(ljung_box_test$p.value, 4)`**. Como `r round(ljung_box_test$p.value, 4)` $>$ 0.05, **não rejeitamos H0**. Isso indica que os resíduos do modelo se comportam como ruído branco e não há evidência de autocorrelação serial. O modelo ARIMA(2,0,1) parece bem ajustado.
+
+#### Teste ARCH-LM (Homocedasticidade)
+
+Testamos se os resíduos (ou seus quadrados) têm variância constante.
+
+**Hipóteses:**
+
+* **H0:** Não há efeitos ARCH (os resíduos são homocedásticos).
+* **H1:** Há efeitos ARCH (heterocedasticidade condicional).
+
+**Regra de Decisão:** Queremos **não rejeitar H0** (p-value $>$ 0.05).
+
+```{r q2_arch_lm}
+# Teste ARCH-LM (usando o pacote FinTS)
+arch_lm_test <- FinTS::ArchTest(res_201, lags = 5)
+print(arch_lm_test)
+```
+
+* **Interpretação (ARCH-LM):** O *p-value* é **`r round(arch_lm_test$p.value, 4)`**. Como `r round(arch_lm_test$p.value, 4)` $>$ 0.05, **não rejeitamos H0**. Isso indica que não há evidência de heterocedasticidade condicional (efeitos ARCH) nos resíduos. A suposição de variância constante (homocedasticidade) é válida para este modelo.
+
+---
+
+# Conclusão Geral
+
+Este documento apresentou a resolução completa da prova prática de Análise de Séries Temporais, abordando:
+
+1. **Questão 1:** Testes de raiz unitária (DF, ADF e KPSS) que confirmaram a não estacionariedade da série `pib`.
+2. **Questão 2:** Identificação, estimação e diagnóstico de um modelo ARIMA(2,0,1), validado através de testes estatísticos rigorosos.
+
+Todos os resultados foram interpretados estatisticamente, com citação de p-values e estatísticas de teste apropriadas.

@@ -1,0 +1,284 @@
+---
+title: "Dinâmica dos Hiatos do Produto e do Mercado de Trabalho no Brasil"
+author: "Lucas Rafael de Andrade"
+date: ""
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    highlight: tango
+    code_folding: show
+  pdf_document:
+    toc: true
+subtitle: Uma Abordagem com Modelo SVAR
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 10,
+  fig.height = 6
+)
+```
+
+# 1. Introdução
+
+Este documento apresenta a análise da dinâmica dos hiatos do produto e do mercado de trabalho no Brasil utilizando um modelo SVAR (Structural Vector Autoregression).
+
+## 1.1 Pacotes Necessários
+
+```{r pacotes}
+# Instalação (descomente se necessário)
+# install.packages(c("readxl", "dplyr", "vars", "zoo", "tseries", "knitr", "kableExtra"))
+
+library(readxl)
+library(dplyr)
+library(vars)
+library(zoo)
+library(tseries)
+library(knitr)
+library(kableExtra)
+```
+
+## 1.2 Configurações Iniciais
+
+```{r config}
+# Caminho para o arquivo principal
+PATH_MAIN <- "C:\\Users\\LucasRafaeldeAndrade\\Desktop\\Repositorios\\Dinamica-dos-hiatos-do-produto-e-do-mercado-de-trabalho-no-Brasil-uma-abordagem-com-modelo-SVAR\\Serie_Hiato.xlsx"
+
+# Variáveis de interesse
+ALL_VARS <- c('hiato_PIB', 'hiato_L', 'Selic_meta', 'Cambio', 'IPCA_indice')
+
+# Período de início
+PERIODO_INICIO <- "2012 Q2"
+
+# Número de defasagens
+LAGS_P <- 4
+```
+
+# 2. Carregamento e Preparação dos Dados
+
+```{r carregamento}
+df_main <- read_excel(PATH_MAIN)
+
+# Convertendo coluna Trimestre para formato de data trimestral
+df_main$Trimestre <- as.yearqtr(df_main$Trimestre)
+
+# Filtrar período e selecionar colunas
+df_analysis <- df_main %>%
+  dplyr::filter(Trimestre >= as.yearqtr(PERIODO_INICIO)) %>%
+  dplyr::select(Trimestre, all_of(ALL_VARS)) %>%
+  na.omit()
+
+# Converter para objeto de Série Temporal (ts)
+start_date <- c(
+  as.integer(format(df_analysis$Trimestre[1], "%Y")), 
+  as.integer(format(df_analysis$Trimestre[1], "%q"))
+)
+
+ts_data <- ts(df_analysis[, ALL_VARS], start = start_date, frequency = 4)
+```
+
+## 2.1 Visualização dos Dados
+
+```{r viz-dados}
+# Tabela com primeiras observações
+head(df_analysis, 10) %>%
+  kable(caption = "Primeiras Observações dos Dados") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+```{r plot-series}
+# Gráfico das séries em nível
+plot(ts_data, main = "Séries Temporais em Nível")
+```
+
+# 3. Estacionariedade
+
+Aplicamos a primeira diferença em todas as variáveis, assumindo que são I(1).
+
+```{r diferenciacao}
+ts_diff <- diff(ts_data)
+
+cat("Número de observações após diferenciação:", nrow(ts_diff), "\n")
+cat("Variáveis:", paste(colnames(ts_diff), collapse = ", "))
+```
+
+```{r plot-diff}
+plot(ts_diff, main = "Séries Temporais em Primeira Diferença")
+```
+
+# 4. Variáveis Dummy Exógenas
+
+Criamos dummies para capturar choques específicos:
+
+- **2020 Q2**: Pandemia de COVID-19
+- **2015 Q2**: Recessão econômica
+
+```{r dummies}
+n_obs <- nrow(ts_diff)
+time_index <- time(ts_diff)
+
+mat_dummies <- matrix(0, nrow = n_obs, ncol = 2)
+colnames(mat_dummies) <- c("dummy_2020Q2", "dummy_2015Q2")
+
+# Dummy Pandemia (2020 Q2)
+idx_2020 <- which(time_index == 2020.25)
+if(length(idx_2020) > 0) {
+  mat_dummies[idx_2020, "dummy_2020Q2"] <- 1
+  cat("✓ Dummy para 2020-Q2 criada.\n")
+}
+
+# Dummy Recessão (2015 Q2)
+idx_2015 <- which(time_index == 2015.25)
+if(length(idx_2015) > 0) {
+  mat_dummies[idx_2015, "dummy_2015Q2"] <- 1
+  cat("✓ Dummy para 2015-Q2 criada.\n")
+}
+```
+
+# 5. Estimação do Modelo VAR Reduzido
+
+```{r var-estimacao}
+model_var <- VAR(ts_diff, p = LAGS_P, type = "const", exogen = mat_dummies)
+
+summary(model_var)
+```
+
+# 6. Diagnósticos Pós-Estimação
+
+## 6.1 Autocorrelação Serial (Teste Portmanteau)
+
+$H_0$: Não há autocorrelação serial nos resíduos.
+
+```{r diag-autocorr}
+serial_test <- serial.test(model_var, lags.pt = LAGS_P * 2, type = "PT.asymptotic")
+print(serial_test)
+```
+
+## 6.2 Normalidade dos Resíduos (Jarque-Bera)
+
+$H_0$: Os resíduos seguem distribuição normal.
+
+```{r diag-normalidade}
+norm_test <- normality.test(model_var, multivariate.only = FALSE)
+print(norm_test$jb.mul)
+```
+
+## 6.3 Estabilidade do Modelo
+
+O modelo é estável se todas as raízes características têm módulo menor que 1.
+
+```{r diag-estabilidade}
+roots_modulus <- roots(model_var, modulus = TRUE)
+
+cat("Raízes características (módulo):\n")
+print(roots_modulus)
+
+if(all(roots_modulus < 1)) {
+  cat("\n✓ RESULTADO: O modelo é ESTÁVEL. (Todas as raízes < 1)\n")
+} else {
+  cat("\n⚠ ALERTA: O modelo é INSTÁVEL.\n")
+}
+```
+
+```{r plot-roots}
+plot(stability(model_var))
+```
+
+# 7. Análise Estrutural (SVAR)
+
+## 7.1 Ordenação de Cholesky
+
+A identificação estrutural é feita via decomposição de Cholesky, com a seguinte ordenação (do mais exógeno ao mais endógeno):
+
+1. Câmbio
+2. IPCA (índice)
+3. Selic meta
+4. Hiato do PIB
+5. Hiato do mercado de trabalho (L)
+
+```{r svar-ordem}
+cholesky_order <- c('Cambio', 'IPCA_indice', 'Selic_meta', 'hiato_PIB', 'hiato_L')
+
+ts_ordered <- ts_diff[, cholesky_order]
+
+model_ordered <- VAR(ts_ordered, p = LAGS_P, type = "const", exogen = mat_dummies)
+```
+
+## 7.2 Funções Impulso-Resposta (IRF)
+
+```{r irf, fig.height=12}
+irf_res <- irf(model_ordered, n.ahead = 20, ortho = TRUE, boot = TRUE, runs = 100)
+
+plot(irf_res)
+```
+
+### IRFs Específicas
+
+```{r irf-especificas, fig.height=4}
+# Resposta do hiato_PIB a choques
+irf_pib <- irf(model_ordered, impulse = NULL, response = "hiato_PIB", 
+               n.ahead = 20, ortho = TRUE, boot = TRUE, runs = 100)
+plot(irf_pib)
+
+# Resposta do hiato_L a choques
+irf_l <- irf(model_ordered, impulse = NULL, response = "hiato_L", 
+             n.ahead = 20, ortho = TRUE, boot = TRUE, runs = 100)
+plot(irf_l)
+```
+
+## 7.3 Decomposição da Variância (FEVD)
+
+```{r fevd}
+fevd_res <- fevd(model_ordered, n.ahead = 20)
+```
+
+### FEVD do Hiato do PIB
+
+```{r fevd-pib}
+fevd_pib <- fevd_res$hiato_PIB[c(1, 5, 10, 20), ]
+
+fevd_pib %>%
+  as.data.frame() %>%
+  mutate(Horizonte = c(1, 5, 10, 20)) %>%
+  dplyr::select(Horizonte, everything()) %>%
+  kable(caption = "Decomposição da Variância - Hiato do PIB", digits = 3) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+### FEVD do Hiato do Mercado de Trabalho
+
+```{r fevd-l}
+fevd_l <- fevd_res$hiato_L[c(1, 5, 10, 20), ]
+
+fevd_l %>%
+  as.data.frame() %>%
+  mutate(Horizonte = c(1, 5, 10, 20)) %>%
+  dplyr::select(Horizonte, everything()) %>%
+  kable(caption = "Decomposição da Variância - Hiato L", digits = 3) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+### Gráficos da FEVD
+
+```{r fevd-plot, fig.height=10}
+plot(fevd_res)
+```
+
+# 8. Conclusões
+
+Note que eu consegui fazer com que as raízes fiquem <1 ! 
+att
+Lucas
+
+---
+
+# Informações da Sessão
+
+```{r sessao}
+sessionInfo()
+```

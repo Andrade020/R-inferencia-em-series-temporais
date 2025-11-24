@@ -1,0 +1,1066 @@
+---
+title: "Segundo Trabalho de Econometria I - Modelos GARCH"
+author: "Lucas Rafael de Andrade"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: united
+    code_folding: show
+  pdf_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.width = 10, fig.height = 6)
+```
+
+# Carregamento de Pacotes
+
+```{r pacotes}
+# Language: BRAZILIAN PORTUGUESE [PT-BR]
+
+###################################################################################
+#install.packages(c("quantmod", "rugarch", "tseries", "FinTS", "moments", "ggplot2", "gridExtra"))
+###################################################################################
+
+library(quantmod)
+library(rugarch)
+library(tseries)
+library(FinTS)
+library(moments)
+library(ggplot2)
+library(gridExtra)
+library(knitr)
+library(kableExtra)
+library(reshape2)
+
+```
+
+# Exercício 1: Modelagem GARCH Linear - Ouro (GC=F)
+
+## 1. Preparação dos Dados
+
+### 1.1 Download e Cálculo dos Retornos
+
+```{r dados_ouro}
+# dados do Ouro
+getSymbols("GC=F", from = "2019-01-01", to = "2024-10-31", src = "yahoo")
+ouro <- na.omit(`GC=F`) #tiro os vaizoz
+
+# preços de fechamento
+preco_ouro <- Cl(ouro)
+
+# log-ret x 100 ##  ##   ###    ##   #####
+retornos_ouro <- diff(log(preco_ouro)) * 100
+retornos_ouro <- na.omit(retornos_ouro)
+
+# basicos ######################################
+n_obs_ouro <- length(retornos_ouro)
+cat("Número de observações:", n_obs_ouro, "\n")
+cat("Período:", min(index(retornos_ouro)), "até", max(index(retornos_ouro)), "\n")
+```
+
+### 1.2 Justificativa da Escolha do Ativo
+
+Escolhi o  Ouro por ser:
+
+- Ativo Refúgio: Historicamente utilizado como proteção contra incerteza econômica e inflação
+- Alta Liquidez: Mercado futuro extremamente líquido e ativo 24 horas
+- Volatilidade Moderada: Apresenta clusters de volatilidade especialmente em períodos de crise
+- Relevância Macroeconômica: Sensível a políticas monetárias e eventos geopolíticos
+
+## 2. Análise Exploratória
+
+### 2.1 Gráficos de Preços e Retornos
+
+```{r graficos_ouro, fig.height=8}
+par(mfrow=c(2,1))
+
+# Grafic preços >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+plot(preco_ouro, main = "Preços do Ouro (GC=F)", ylab = "Preço (USD)", col = "darkgoldenrod3", lwd = 1.5)
+
+# Grafic retornos >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+plot(retornos_ouro, main = "Retornos Logarítmicos do Ouro (%)", ylab = "Retorno (%)", col = "darkred", lwd = 1)
+abline(h = 0, col = "black", lty = 2)
+```
+
+### 2.2 Estatísticas Descritivas
+
+```{r estat_desc_ouro}
+estat_ouro <- data.frame(
+  Média = mean(retornos_ouro),
+  Desvio_Padrão = sd(retornos_ouro),
+  Mínimo = min(retornos_ouro),
+  Máximo = max(retornos_ouro),
+  Assimetria = skewness(retornos_ouro),
+  Curtose = kurtosis(retornos_ouro),
+  Curtose_Excesso = kurtosis(retornos_ouro) - 3
+)
+
+kable(estat_ouro, digits = 4, caption = "Estatísticas Descritivas - Retornos do Ouro")
+
+# Interpretç
+cat("\nInterpretação:\n")
+cat("- Média dos retornos:", round(estat_ouro$Média, 4), "%\n")
+cat("- Volatilidade (desvio padrão):", round(estat_ouro$Desvio_Padrão, 4), "%\n")
+cat("- Assimetria:", round(estat_ouro$Assimetria, 4), 
+    ifelse(estat_ouro$Assimetria < 0, "(negativa - cauda esquerda mais pesada)\n", 
+           "(positiva - cauda direita mais pesada)\n"))
+cat("- Curtose em excesso:", round(estat_ouro$Curtose_Excesso, 4), 
+    ifelse(estat_ouro$Curtose_Excesso > 0, "(leptocúrtica - caudas pesadas)\n", 
+           "(platicúrtica - caudas leves)\n"))
+```
+
+### 2.3 Histograma e Q-Q Plot
+
+```{r histograma_ouro, fig.height=5}
+par(mfrow=c(1,2))
+
+# Histogram
+hist(retornos_ouro, breaks = 50, freq = FALSE, 
+     main = "Histograma dos Retornos do Ouro", 
+     xlab = "Retorno (%)", col = "lightgoldenrod2")
+curve(dnorm(x, mean = mean(retornos_ouro), sd = sd(retornos_ouro)), 
+      add = TRUE, col = "red", lwd = 2)
+legend("topright", legend = "Normal Teórica", col = "red", lwd = 2)
+
+# Q-Q Plot
+qqnorm(retornos_ouro, main = "Q-Q Plot - Retornos do Ouro")
+qqline(retornos_ouro, col = "red", lwd = 2)
+```
+
+### 2.4 Testes de Estacionariedade
+
+```{r estacionariedade_ouro}
+# Teste ADF(raiz unit)
+adf_ouro <- adf.test(retornos_ouro)
+
+# Teste KPSS
+kpss_ouro <- kpss.test(retornos_ouro)
+
+cat("Teste ADF (Augmented Dickey-Fuller):\n")
+cat("H0: Série possui raiz unitária (não estacionária)\n")
+cat("Estatística:", round(adf_ouro$statistic, 4), "\n")
+cat("P-valor:", round(adf_ouro$p.value, 4), "\n")
+cat("Conclusão:", ifelse(adf_ouro$p.value < 0.05, 
+                         "Rejeita H0 - Série é ESTACIONÁRIA\n\n",
+                         "Não rejeita H0 - Série é NÃO ESTACIONÁRIA\n\n"))
+
+cat("Teste KPSS:\n")
+cat("H0: Série é estacionária\n")
+cat("Estatística:", round(kpss_ouro$statistic, 4), "\n")
+cat("P-valor:", round(kpss_ouro$p.value, 4), "\n")
+cat("Conclusão:", ifelse(kpss_ouro$p.value > 0.05, 
+                         "Não rejeita H0 - Série é ESTACIONÁRIA\n",
+                         "Rejeita H0 - Série é NÃO ESTACIONÁRIA\n"))
+```
+
+### 2.5 Fatos Estilizados
+
+```{r fatos_estilizados_ouro, fig.height=8}
+par(mfrow=c(2,2))
+
+# vol cluster
+plot(retornos_ouro, main = "Clusters de Volatilidade", 
+     ylab = "Retorno (%)", col = "darkblue")
+
+# ACF dos retornos
+acf(retornos_ouro, main = "ACF - Retornos", lag.max = 30)
+
+# ACF dos retornos ^ quadrado
+acf(retornos_ouro^2, main = "ACF - Retornos²", lag.max = 30)
+
+# ACF dos retornos em |valor absoluto|
+acf(abs(retornos_ouro), main = "ACF - |Retornos|", lag.max = 30)
+
+# Teste ARCH-LM para heterosedasticidade
+arch_test_ouro <- ArchTest(retornos_ouro, lags = 12)
+cat("\nTeste ARCH-LM (heterocedasticidade):\n")
+cat("H0: Não há efeitos ARCH\n")
+cat("Estatística LM:", round(arch_test_ouro$statistic, 4), "\n")
+cat("P-valor:", round(arch_test_ouro$p.value, 6), "\n")
+cat("Conclusão:", ifelse(arch_test_ouro$p.value < 0.05, 
+                         "Rejeita H0 - Presença de efeitos ARCH (heterocedasticidade condicional)\n",
+                         "Não rejeita H0 - Sem evidência de efeitos ARCH\n"))
+```
+
+**Fatos estilizados Identificados:**
+
+1.Clusters de Volatilidade: Períodos de alta volatilidade seguidos por alta volatilidade
+2. Caudas Pesadas: Curtose em excesso indica eventos extremos mais frequentes que distribuição normal
+3. Autocorrelação nos Quadrados: Evidência de dependência temporal na variância
+4. Heterocedasticidade Condicional: Confirmada pelo teste ARCH-LM
+
+## 3. Modelagem GARCH(1,1) Linear
+
+### 3.1 Especificação e Estimação
+
+```{r garch_ouro}
+# Especificação GARCH(1,1) com distribuição t-Student
+spec_garch_ouro <- ugarchspec(
+  variance.model = list(model = "sGARCH", garchOrder = c(1, 1)),
+  mean.model = list(armaOrder = c(0, 0), include.mean = TRUE),
+  distribution.model = "std"
+)
+
+# Estimaç
+fit_garch_ouro <- ugarchfit(spec = spec_garch_ouro, data = retornos_ouro)
+
+# Results
+print(fit_garch_ouro)
+```
+
+### 3.2 Justificativa da Distribuição t-Student
+Justificativa para uso da distribuição t-Student:
+```{r justificativa_tstudent_ouro}
+cat("1. Curtose em excesso observada:", round(estat_ouro$Curtose_Excesso, 4), "\n")
+cat("   - Indica caudas mais pesadas que a distribuição normal\n\n")
+cat("2. Graus de liberdade estimados:", round(coef(fit_garch_ouro)["shape"], 4), "\n")
+cat("   - Valores baixos (< 30) confirmam necessidade de t-Student\n\n")
+cat("3. A t-Student captura melhor:\n")
+cat("   - Eventos extremos (crashes e rallies)\n")
+cat("   - Kurtosis excessivo dos retornos financeiros\n")
+```
+
+### 3.3 Interpretação dos Parâmetros
+Parâmetros Estimados:
+```{r interpretacao_param_ouro}
+coefs_ouro <- coef(fit_garch_ouro)
+
+cat("EQUAÇÃO DA MÉDIA:\n")
+cat("mu (μ):", round(coefs_ouro["mu"], 6), "\n")
+cat("  - Retorno médio incondicional:", round(coefs_ouro["mu"], 4), "%\n\n")
+
+cat("EQUAÇÃO DA VARIÂNCIA:\n")
+cat("omega (ω):", round(coefs_ouro["omega"], 8), "\n")
+cat("  - Constante (nível base da variância)\n\n")
+
+cat("alpha (α):", round(coefs_ouro["alpha1"], 6), "\n")
+cat("  - Efeito ARCH: impacto de choques passados\n")
+cat("  - Representa", round(coefs_ouro["alpha1"]*100, 2), "% do impacto de ε²(t-1)\n\n")
+
+cat("beta (β):", round(coefs_ouro["beta1"], 6), "\n")
+cat("  - Efeito GARCH: persistência da volatilidade\n")
+cat("  - Representa", round(coefs_ouro["beta1"]*100, 2), "% da persistência de σ²(t-1)\n\n")
+
+soma_ab <- coefs_ouro["alpha1"] + coefs_ouro["beta1"]
+cat("Soma α + β:", round(soma_ab, 6), "\n")
+cat("  - Persistência total:", round(soma_ab*100, 2), "%\n")
+cat("  - Condição de estacionariedade (α + β < 1):", 
+    ifelse(soma_ab < 1, "SATISFEITA ✓\n", "NÃO SATISFEITA ✗\n"))
+cat("  - Half-life (meia-vida):", round(log(0.5)/log(soma_ab), 2), "dias\n\n")
+
+cat("shape (ν):", round(coefs_ouro["shape"], 4), "\n")
+cat("  - Graus de liberdade da t-Student\n")
+cat("  - Quanto menor, mais pesadas as caudas\n")
+```
+
+### 3.4 Significância Estatística
+
+```{r significancia_ouro}
+#  estatsticas do modelo
+stats_ouro <- data.frame(
+  Parâmetro = names(coef(fit_garch_ouro)),
+  Estimativa = coef(fit_garch_ouro),
+  Erro_Padrão = fit_garch_ouro@fit$matcoef[, 2],
+  Estatística_t = fit_garch_ouro@fit$matcoef[, 3],
+  P_valor = fit_garch_ouro@fit$matcoef[, 4]
+)
+
+kable(stats_ouro, digits = 6, caption = "Significância Estatística dos Parâmetros - Ouro")
+
+cat("\nTodos os parâmetros com p-valor < 0.05 são estatisticamente significativos ao nível de 5%\n")
+```
+
+## 4. Diagnóstico do Modelo
+
+### 4.1 Resíduos Padronizados
+
+```{r residuos_ouro, fig.height=8}
+# Extração de resíduos padronizados
+residuos_pad_ouro <- residuals(fit_garch_ouro, standardize = TRUE)
+
+par(mfrow=c(2,2))
+
+# Gráfico dos resídos
+plot(residuos_pad_ouro, main = "Resíduos Padronizados", 
+     ylab = "Resíduo Padronizado", col = "darkblue")
+abline(h = 0, col = "red", lty = 2)
+abline(h = c(-2, 2), col = "orange", lty = 2)
+
+# Histogrm
+hist(residuos_pad_ouro, breaks = 50, freq = FALSE, 
+     main = "Histograma dos Resíduos Padronizados", 
+     xlab = "Resíduo Padronizado", col = "lightblue")
+curve(dnorm(x, mean = mean(residuos_pad_ouro), sd = sd(residuos_pad_ouro)), 
+      add = TRUE, col = "red", lwd = 2)
+
+# Q-Q Plot
+qqnorm(residuos_pad_ouro, main = "Q-Q Plot - Resíduos Padronizados")
+qqline(residuos_pad_ouro, col = "red", lwd = 2)
+
+# ACF
+acf(residuos_pad_ouro, main = "ACF - Resíduos Padronizados", lag.max = 30)
+```
+
+### 4.2 Teste de Autocorrelação (Ljung-Box)
+
+```{r ljungbox_ouro}
+# Testes LB para diferentes lags
+lags <- c(5, 10, 15)
+resultados_lb_ouro <- data.frame()
+
+for (lag in lags) {
+  teste <- Box.test(residuos_pad_ouro, lag = lag, type = "Ljung-Box")
+  resultados_lb_ouro <- rbind(resultados_lb_ouro, 
+                               data.frame(
+                                 Lag = lag,
+                                 Estatística = teste$statistic,
+                                 P_valor = teste$p.value,
+                                 Conclusão = ifelse(teste$p.value > 0.05, 
+                                                    "Não rejeita H0", "Rejeita H0")
+                               ))
+}
+
+kable(resultados_lb_ouro, digits = 4, 
+      caption = "Teste Ljung-Box - Autocorrelação dos Resíduos")
+
+cat("\nH0: Não há autocorrelação nos resíduos\n")
+cat("Interpretação: P-valores > 0.05 indicam ausência de autocorrelação significativa\n")
+```
+
+### 4.3 Teste de Normalidade <- Jarque-Bera
+
+```{r jb_ouro}
+jb_test_ouro <- jarque.test(as.numeric(residuos_pad_ouro))
+
+cat("Teste Jarque-Bera:\n")
+cat("H0: Resíduos seguem distribuição normal\n")
+cat("Estatística:", round(jb_test_ouro$statistic, 4), "\n")
+cat("P-valor:", format(jb_test_ouro$p.value, scientific = TRUE, digits = 4), "\n")
+cat("Conclusão:", ifelse(jb_test_ouro$p.value < 0.05, 
+                         "Rejeita H0 - Resíduos NÃO são normais (esperado para t-Student)\n",
+                         "Não rejeita H0 - Resíduos são normais\n"))
+```
+
+### 4.4 Teste ARCH-LM nos Resíduos
+
+```{r archlm_residuos_ouro}
+arch_test_res_ouro <- ArchTest(residuos_pad_ouro, lags = 12)
+
+cat("Teste ARCH-LM nos Resíduos Padronizados:\n")
+cat("H0: Não há efeitos ARCH nos resíduos\n")
+cat("Estatística LM:", round(arch_test_res_ouro$statistic, 4), "\n")
+cat("P-valor:", round(arch_test_res_ouro$p.value, 4), "\n")
+cat("Conclusão:", ifelse(arch_test_res_ouro$p.value > 0.05, 
+                         "Não rejeita H0 - Modelo capturou adequadamente a heterocedasticidade\n",
+                         "Rejeita H0 - Ainda há efeitos ARCH residuais\n"))
+```
+
+## 5. Análise da Volatilidade
+
+### 5.1 Volatilidade Condicional Estimada
+
+```{r volatilidade_ouro, fig.height=6}
+# Extrair volatilidade condicional
+vol_cond_ouro <- sigma(fit_garch_ouro)
+
+# Grafico >>>>>>>>>>>>>>>>>>>>>>>>>>
+plot(vol_cond_ouro, main = "Volatilidade Condicional do Ouro (GARCH)", 
+     ylab = "Volatilidade (%)", col = "darkred", lwd = 1.5)
+
+# add  média >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+abline(h = mean(vol_cond_ouro), col = "blue", lwd = 2, lty = 2)
+legend("topright", legend = c("Volatilidade Condicional", "Média"), 
+       col = c("darkred", "blue"), lwd = c(1.5, 2), lty = c(1, 2))
+```
+
+### 5.2 Volatilidade Incondicional
+
+```{r vol_incond_ouro}
+omega <- coefs_ouro["omega"]
+alpha <- coefs_ouro["alpha1"]
+beta <- coefs_ouro["beta1"]
+
+vol_incond_ouro <- sqrt(omega / (1 - alpha - beta))
+
+cat("Volatilidade Incondicional:\n")
+cat("Fórmula: σ² = ω / (1 - α - β)\n\n")
+cat("ω (omega):", round(omega, 8), "\n")
+cat("α (alpha):", round(alpha, 6), "\n")
+cat("β (beta):", round(beta, 6), "\n")
+cat("1 - α - β:", round(1 - alpha - beta, 6), "\n\n")
+cat("Volatilidade incondicional:", round(vol_incond_ouro, 4), "%\n")
+cat("Volatilidade condicional média:", round(mean(vol_cond_ouro), 4), "%\n")
+cat("Volatilidade histórica (desvio padrão):", round(sd(retornos_ouro), 4), "%\n")
+```
+
+### 5.3 Períodos de Alta Volatilidade e Eventos
+
+```{r eventos_ouro}
+# Identificar períodos de alta volatilidade > percentil 95
+limiar_vol <- quantile(vol_cond_ouro, 0.95)
+datas_alta_vol <- index(vol_cond_ouro[vol_cond_ouro > limiar_vol])
+
+cat("Períodos de Alta Volatilidade (acima do percentil 95):\n")
+cat("Limiar:", round(limiar_vol, 4), "%\n\n")
+
+#  primeiras e últimas datas
+cat("Primeiros 10 eventos:\n")
+print(head(datas_alta_vol, 10))
+
+cat("\n\nÚltimos 10 eventos:\n")
+print(tail(datas_alta_vol, 10))
+
+cat("\n\nRelação com Eventos de Mercado:\n")
+cat("- Março 2020: Início da pandemia COVID-19 e crash do mercado\n")
+cat("- 2022: Guerra Rússia-Ucrânia e aumento da inflação global\n")
+cat("- 2023-2024: Incerteza sobre taxas de juros e tensões geopolíticas\n")
+```
+
+
+
+# Exercício 2: Modelagem GARCH Não Linear com Criptomoeda
+
+## Instalação e Carregamento de Pacotes
+
+
+## 1. Preparação dos Dados
+
+### 1.1 Download dos Dados
+
+**Ativo escolhido:** Bitcoin (BTC-USD)
+
+**Justificativa:** O Bitcoin foi escolhido por ser a principal criptomoeda do mercado, apresentando alta volatilidade, não linearidade e forte assimetria em suas respostas a choques positivos e negativos. Criptomoedas são conhecidas por exibirem efeitos de alavancagem inversos (choques positivos podem aumentar mais a volatilidade que negativos), tornando-as candidatos ideais para modelagem GARCH não linear.
+
+```{r download}
+#  período
+inicio <- "2020-01-01"
+fim <- "2024-10-31"
+
+# Download 
+getSymbols("BTC-USD", src = "yahoo", from = inicio, to = fim, auto.assign = TRUE)
+
+# preços de fechamento ajustados
+precos <- na.omit(Cl(`BTC-USD`))
+colnames(precos) <- "Preco"
+
+# Informacoes
+cat("Período de análise:", as.character(index(precos)[1]), "até", 
+    as.character(index(precos)[length(precos)]), "\n")
+cat("Número de observações:", length(precos), "\n")
+```
+
+### 1.2 Cálculo dos Retornos Logarítmicos
+
+```{r retornos}
+#  retornos logarítmicos multiplicados x 100
+retornos <- diff(log(precos)) * 100
+retornos <- na.omit(retornos)
+colnames(retornos) <- "Retorno"
+
+# Estatísticas desc
+cat("Número de retornos:", length(retornos), "\n")
+cat("Primeiro retorno:", as.character(index(retornos)[1]), "\n")
+cat("Último retorno:", as.character(index(retornos)[length(retornos)]), "\n")
+```
+
+## 2. Análise Exploratória
+
+### 2.1 Gráficos dos Preços e Retornos
+
+```{r graficos_serie, fig.height=8}
+# ->  para data.frame para ggplot
+df_precos <- data.frame(Data = index(precos), Preco = as.numeric(precos))
+df_retornos <- data.frame(Data = index(retornos), Retorno = as.numeric(retornos))
+
+# Gráf
+p1 <- ggplot(df_precos, aes(x = Data, y = Preco)) +
+  geom_line(color = "darkblue", size = 0.5) +
+  labs(title = "Preços do Bitcoin (BTC-USD)",
+       x = "Data", y = "Preço (USD)") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+# Gráf
+p2 <- ggplot(df_retornos, aes(x = Data, y = Retorno)) +
+  geom_line(color = "darkred", size = 0.3) +
+  labs(title = "Retornos Logarítmicos do Bitcoin",
+       x = "Data", y = "Retorno (%)") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+grid.arrange(p1, p2, ncol = 1)
+```
+
+### 2.2 Estatísticas Descritivas
+
+```{r estat_descritivas}
+# estatísticas
+media <- mean(retornos)
+dp <- sd(retornos)
+assimetria <- skewness(retornos)
+curtose_exc <- kurtosis(retornos) - 3
+minimo <- min(retornos)
+maximo <- max(retornos)
+
+# tabela
+estat_desc <- data.frame(
+  Estatística = c("Média", "Desvio Padrão", "Mínimo", "Máximo", 
+                  "Assimetria", "Curtose Excesso"),
+  Valor = c(media, dp, minimo, maximo, assimetria, curtose_exc)
+)
+
+kable(estat_desc, digits = 4, caption = "Estatísticas Descritivas dos Retornos do Bitcoin") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE)
+```
+
+**Interpretação:**
+
+- A média dos retornos é de `r round(media, 4)`%, indicando tendência de `r ifelse(media > 0, "valorização", "desvalorização")` no período.
+- O desvio padrão de `r round(dp, 4)`% confirma a alta volatilidade característica do Bitcoin.
+- A assimetria de `r round(assimetria, 4)` indica distribuição `r ifelse(assimetria > 0, "assimétrica à direita (retornos extremos positivos)", "assimétrica à esquerda (retornos extremos negativos)")`.
+- A curtose excedente de `r round(curtose_exc, 4)` demonstra caudas pesadas (leptocurtose), evidenciando eventos extremos frequentes.
+
+### 2.3 Histograma e Q-Q Plot
+
+```{r histograma_qq, fig.height=4}
+par(mfrow = c(1, 2))
+
+# Histograma
+hist(retornos, breaks = 50, probability = TRUE, col = "lightblue",
+     main = "Histograma dos Retornos", xlab = "Retorno (%)", 
+     border = "white")
+lines(density(retornos), col = "red", lwd = 2)
+curve(dnorm(x, mean = mean(retornos), sd = sd(retornos)), 
+      add = TRUE, col = "blue", lwd = 2, lty = 2)
+legend("topright", legend = c("Densidade empírica", "Normal teórica"),
+       col = c("red", "blue"), lty = c(1, 2), lwd = 2)
+
+# Q-Q Plot
+qqnorm(retornos, main = "Q-Q Plot Normal")
+qqline(retornos, col = "red", lwd = 2)
+
+par(mfrow = c(1, 1))
+```
+
+### 2.4 Testes de Estacionariedade
+
+```{r estacionariedade}
+#  ADF (H0: série não é estacionária)
+adf_test <- adf.test(retornos)
+
+#  KPSS (H0: série é estacionária)
+kpss_test <- kpss.test(retornos)
+
+# resultados
+cat("Teste ADF (Augmented Dickey-Fuller)\n")
+cat("H0: Série possui raiz unitária (não estacionária)\n")
+cat("Estatística de teste:", round(adf_test$statistic, 4), "\n")
+cat("P-valor:", round(adf_test$p.value, 4), "\n")
+cat("Conclusão:", ifelse(adf_test$p.value < 0.05, 
+                         "Rejeita H0 - Série é estacionária", 
+                         "Não rejeita H0 - Série não é estacionária"), "\n\n")
+
+cat("Teste KPSS (Kwiatkowski-Phillips-Schmidt-Shin)\n")
+cat("H0: Série é estacionária\n")
+cat("Estatística de teste:", round(kpss_test$statistic, 4), "\n")
+cat("P-valor:", round(kpss_test$p.value, 4), "\n")
+cat("Conclusão:", ifelse(kpss_test$p.value > 0.05, 
+                         "Não rejeita H0 - Série é estacionária", 
+                         "Rejeita H0 - Série não é estacionária"), "\n")
+```
+
+### 2.5 Fatos Estilizados
+
+```{r fatos_estilizados, fig.height=8}
+# ACF / PACF dos retornos
+par(mfrow = c(2, 2))
+
+acf(retornos, main = "ACF dos Retornos", lag.max = 30)
+pacf(retornos, main = "PACF dos Retornos", lag.max = 30)
+
+# ACF e PACF dos retornos ao quadrado
+acf(retornos^2, main = "ACF dos Retornos ao Quadrado", lag.max = 30)
+pacf(retornos^2, main = "PACF dos Retornos ao Quadrado", lag.max = 30)
+
+par(mfrow = c(1, 1))
+```
+
+**Fatos Estilizados Identificados:**
+
+1. **Clusters de Volatilidade:** Períodos de alta volatilidade tendem a ser seguidos por períodos de alta volatilidade.
+2. **Ausência de autocorrelação nos retornos:** Indicando eficiência de mercado na média.
+3. **Autocorrelação nos retornos ao quadrado:** Evidência de heterocedasticidade condicional (efeito ARCH).
+4. **Caudas pesadas:** Curtose excedente de `r round(curtose_exc, 4)`.
+5. **Assimetria:** Distribuição assimétrica com skewness de `r round(assimetria, 4)`.
+
+### 2.6 Análise de Não Linearidade e Assimetria
+
+```{r nao_linearidade}
+#  ARCH-LM para heterocedasticidade
+arch_test <- ArchTest(retornos, lags = 10)
+
+cat("Teste ARCH-LM (Multiplicador de Lagrange)\n")
+cat("H0: Não há efeitos ARCH\n")
+cat("Estatística Chi-quadrado:", round(arch_test$statistic, 4), "\n")
+cat("P-valor:", format(arch_test$p.value, scientific = TRUE, digits = 4), "\n")
+cat("Conclusão:", ifelse(arch_test$p.value < 0.05,
+                         "Rejeita H0 - Presença de efeitos ARCH/GARCH",
+                         "Não rejeita H0 - Ausência de efeitos ARCH"), "\n\n")
+
+# assimetria: retornos positivos vs negativos
+retornos_pos <- retornos[retornos > 0]
+retornos_neg <- retornos[retornos < 0]
+
+cat("Análise de Assimetria:\n")
+cat("Média retornos positivos:", round(mean(retornos_pos), 4), "%\n")
+cat("Média retornos negativos:", round(mean(retornos_neg), 4), "%\n")
+cat("Desvio padrão retornos positivos:", round(sd(retornos_pos), 4), "%\n")
+cat("Desvio padrão retornos negativos:", round(sd(retornos_neg), 4), "%\n")
+cat("Proporção de retornos positivos:", 
+    round(length(retornos_pos)/length(retornos)*100, 2), "%\n")
+```
+
+**Justificativa para Modelo Não Linear:**
+
+O Bitcoin apresenta forte evidência de não linearidade através do teste ARCH-LM (p-valor < 0.05), indicando heterocedasticidade condicional. A análise de assimetria mostra que choques positivos e negativos têm impactos diferentes na volatilidade, característica que modelos GARCH lineares não capturam adequadamente. Além disso, a curtose excedente elevada (`r round(curtose_exc, 4)`) sugere necessidade de distribuições com caudas pesadas.
+
+## 3. Escolha do Modelo GARCH Não Linear
+
+**Modelo Escolhido:** EGARCH(1,1) - Exponential GARCH
+
+**Especificação:**
+$$\ln(\sigma_t^2) = \omega + \alpha\left(\frac{|\varepsilon_{t-1}|}{\sigma_{t-1}} - \sqrt{\frac{2}{\pi}}\right) + \gamma\frac{\varepsilon_{t-1}}{\sigma_{t-1}} + \beta\ln(\sigma_{t-1}^2)$$
+
+**Justificativa:**
+
+1. **Assimetria:** O parâmetro γ captura efeitos assimétricos (leverage effects).
+2. **Garantia de Positividade:** A especificação logarítmica garante σ²ₜ > 0 sem restrições nos parâmetros.
+3. **Adequação para Criptomoedas:** Criptomoedas frequentemente exibem efeito de alavancagem inverso, onde boas notícias podem aumentar mais a volatilidade que más notícias.
+4. **Interpretação:** O termo γ < 0 indica leverage effect tradicional; γ > 0 indica leverage inverso.
+
+## 4. Escolha da Distribuição
+
+**Distribuição Escolhida:** Skewed Student-t (t-Student Assimétrica)
+
+**Justificativa:**
+
+1. **Caudas Pesadas:** Captura eventos extremos através do parâmetro de graus de liberdade (shape).
+2. **Assimetria:** O parâmetro skew captura a assimetria observada nos retornos (`r round(assimetria, 4)`).
+3. **Flexibilidade:** Combina ambas características essenciais para modelar criptomoedas.
+4. **Adequação Empírica:** Literatura em finanças quantitativas mostra superioridade desta distribuição para ativos de alta volatilidade.
+
+## 5. Estimação dos Modelos
+
+### 5.1 Modelo EGARCH(1,1) com Skewed-t
+
+```{r modelo_egarch}
+# Especificação do modelo: 
+# EGARCH
+spec_egarch <- ugarchspec(
+  variance.model = list(model = "eGARCH", garchOrder = c(1, 1)),
+  mean.model = list(armaOrder = c(0, 0), include.mean = TRUE),
+  distribution.model = "sstd"  # Skewed Student-t
+)
+
+# Estimação
+fit_egarch <- ugarchfit(spec = spec_egarch, data = retornos, solver = "hybrid")
+
+# Apresentar resultados
+print(fit_egarch)
+```
+
+### 5.2 Modelo GARCH(1,1) Linear (Benchmark)
+
+```{r modelo_garch_benchmark}
+# Especificação do GARCH linear
+spec_garch <- ugarchspec(
+  variance.model = list(model = "sGARCH", garchOrder = c(1, 1)),
+  mean.model = list(armaOrder = c(0, 0), include.mean = TRUE),
+  distribution.model = "sstd"
+)
+
+# Estimação
+fit_garch <- ugarchfit(spec = spec_garch, data = retornos, solver = "hybrid")
+
+# Apresentar resultados
+print(fit_garch)
+```
+
+### 5.3 Interpretação dos Parâmetros do EGARCH
+
+```{r interpretacao_egarch}
+# coeficientes
+coef_egarch <- coef(fit_egarch)
+
+# Parms
+omega <- coef_egarch["omega"]
+alpha1 <- coef_egarch["alpha1"]
+gamma1 <- coef_egarch["gamma1"]
+beta1 <- coef_egarch["beta1"]
+skew <- coef_egarch["skew"]
+shape <- coef_egarch["shape"]
+
+cat("Parâmetros Estimados do EGARCH(1,1):\n\n")
+cat("Equação da Média:\n")
+cat("  mu =", round(coef_egarch["mu"], 6), "\n\n")
+
+cat("Equação da Variância:\n")
+cat("  omega (ω) =", round(omega, 6), "\n")
+cat("  alpha1 (α) =", round(alpha1, 6), "\n")
+cat("  gamma1 (γ) =", round(gamma1, 6), "\n")
+cat("  beta1 (β) =", round(beta1, 6), "\n\n")
+
+cat("Parâmetros da Distribuição:\n")
+cat("  skew =", round(skew, 6), "\n")
+cat("  shape (graus de liberdade) =", round(shape, 6), "\n\n")
+
+cat("Interpretação Econômica:\n\n")
+
+cat("1. Persistência da Volatilidade (β =", round(beta1, 4), "):\n")
+cat("   ", ifelse(beta1 > 0.9, "Muito alta", ifelse(beta1 > 0.7, "Alta", "Moderada")),
+    "persistência - choques têm efeito", 
+    ifelse(beta1 > 0.9, "muito duradouro", "duradouro"), "na volatilidade.\n\n")
+
+cat("2. Efeito de Notícias (α =", round(alpha1, 4), "):\n")
+cat("   ", ifelse(abs(alpha1) > 0.2, "Alto", ifelse(abs(alpha1) > 0.1, "Moderado", "Baixo")),
+    "impacto de choques recentes na volatilidade.\n\n")
+
+cat("3. Assimetria/Leverage (γ =", round(gamma1, 4), "):\n")
+if (gamma1 < -0.05) {
+  cat("   Forte leverage effect tradicional: choques negativos aumentam mais a volatilidade.\n")
+} else if (gamma1 > 0.05) {
+  cat("   Leverage effect inverso: choques positivos aumentam mais a volatilidade.\n")
+  cat("   Comum em criptomoedas durante bull markets.\n")
+} else {
+  cat("   Efeito assimétrico fraco ou ausente.\n")
+}
+cat("\n")
+
+cat("4. Assimetria da Distribuição (skew =", round(skew, 4), "):\n")
+cat("   ", ifelse(skew > 1, "Assimetria positiva (cauda direita mais pesada)",
+                  "Assimetria negativa (cauda esquerda mais pesada)"), "\n\n")
+
+cat("5. Caudas Pesadas (shape =", round(shape, 4), " graus de liberdade):\n")
+cat("   ", ifelse(shape < 5, "Caudas muito pesadas", 
+                  ifelse(shape < 10, "Caudas pesadas", "Caudas moderadamente pesadas")),
+    "- eventos extremos são frequentes.\n")
+```
+
+### 5.4 Comparação de Modelos
+
+```{r comparacao_modelos}
+# Critérios de informação
+aic_egarch <- infocriteria(fit_egarch)[1]
+bic_egarch <- infocriteria(fit_egarch)[2]
+loglik_egarch <- likelihood(fit_egarch)
+
+aic_garch <- infocriteria(fit_garch)[1]
+bic_garch <- infocriteria(fit_garch)[2]
+loglik_garch <- likelihood(fit_garch)
+
+# tabela comparativa
+comparacao <- data.frame(
+  Modelo = c("EGARCH(1,1)", "GARCH(1,1)"),
+  AIC = c(aic_egarch, aic_garch),
+  BIC = c(bic_egarch, bic_garch),
+  LogLik = c(loglik_egarch, loglik_garch)
+)
+
+kable(comparacao, digits = 4, 
+      caption = "Comparação de Modelos - Critérios de Informação") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE) %>%
+  row_spec(which.min(comparacao$AIC), bold = TRUE, color = "white", background = "#28a745")
+
+cat("\nInterpretação:\n")
+cat("O modelo com MENOR AIC/BIC é preferível.\n")
+cat("Modelo preferido (AIC):", comparacao$Modelo[which.min(comparacao$AIC)], "\n")
+cat("Modelo preferido (BIC):", comparacao$Modelo[which.min(comparacao$BIC)], "\n")
+```
+
+## 6. Validação e Diagnóstico
+
+### 6.1 Análise dos Resíduos Padronizados
+
+```{r residuos}
+# Extrair resíduos padrnzads
+residuos_pad <- residuals(fit_egarch, standardize = TRUE)
+
+# Estatísticas dos resds
+cat("Estatísticas dos Resíduos Padronizados:\n")
+cat("Média:", round(mean(residuos_pad), 6), "\n")
+cat("Desvio Padrão:", round(sd(residuos_pad), 6), "\n")
+cat("Assimetria:", round(skewness(residuos_pad), 6), "\n")
+cat("Curtose:", round(kurtosis(residuos_pad), 6), "\n")
+```
+
+### 6.2 Gráficos dos Resíduos
+
+```{r graficos_residuos, fig.height=8}
+par(mfrow = c(2, 2))
+
+# Serie temporal dos residos
+plot(residuos_pad, main = "Resíduos Padronizados", 
+     ylab = "Resíduo", type = "l", col = "darkblue")
+abline(h = 0, col = "red", lty = 2)
+
+# Histogram >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+hist(residuos_pad, breaks = 50, probability = TRUE, 
+     main = "Histograma dos Resíduos", xlab = "Resíduo",
+     col = "lightblue", border = "white")
+lines(density(residuos_pad), col = "red", lwd = 2)
+
+# Q-Q Plot
+qqnorm(residuos_pad, main = "Q-Q Plot dos Resíduos")
+qqline(residuos_pad, col = "red", lwd = 2)
+
+# ACF dos resíduos
+acf(residuos_pad, main = "ACF dos Resíduos Padronizados", lag.max = 30)
+
+par(mfrow = c(1, 1))
+```
+
+### 6.3 Teste de Autocorrelação (Ljung-Box)
+
+```{r ljung_box}
+# LB  para diferentes lags
+lags <- c(5, 10, 15)
+lb_results <- data.frame(
+  Lag = integer(),
+  Estatistica = numeric(),
+  P_valor = numeric(),
+  Conclusao = character(),
+  stringsAsFactors = FALSE
+)
+
+for (lag in lags) {
+  lb_test <- Box.test(residuos_pad, lag = lag, type = "Ljung-Box")
+  conclusao <- ifelse(lb_test$p.value > 0.05, 
+                      "Não rejeita H0 - Sem autocorrelação",
+                      "Rejeita H0 - Autocorrelação presente")
+  lb_results <- rbind(lb_results, 
+                      data.frame(Lag = lag,
+                                Estatistica = lb_test$statistic,
+                                P_valor = lb_test$p.value,
+                                Conclusao = conclusao))
+}
+
+kable(lb_results, digits = 4, 
+      caption = "Teste Ljung-Box para Autocorrelação dos Resíduos") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE)
+```
+
+### 6.4 Teste de Normalidade 
+
+```{r jarque_bera}
+# Jarque-Bera
+jb_test <- jarque.test(as.numeric(residuos_pad))
+
+cat("Teste Jarque-Bera\n")
+cat("H0: Resíduos seguem distribuição normal\n")
+cat("Estatística de teste:", round(jb_test$statistic, 4), "\n")
+cat("P-valor:", format(jb_test$p.value, scientific = TRUE, digits = 4), "\n")
+cat("Conclusão:", ifelse(jb_test$p.value > 0.05,
+                         "Não rejeita H0 - Resíduos são normais",
+                         "Rejeita H0 - Resíduos não são normais"), "\n")
+cat("\nNota: É esperado que resíduos não sejam perfeitamente normais,")
+cat("\nmas devem estar próximos se o modelo estiver bem especificado.\n")
+```
+
+### 6.5 Teste ARCH-LM nos Resíduos
+
+```{r arch_residuos}
+# ARCH nos resíduos padronizados
+arch_residuos <- ArchTest(residuos_pad, lags = 10)
+
+cat("Teste ARCH-LM nos Resíduos Padronizados\n")
+cat("H0: Não há efeitos ARCH remanescentes\n")
+cat("Estatística Chi-quadrado:", round(arch_residuos$statistic, 4), "\n")
+cat("P-valor:", round(arch_residuos$p.value, 4), "\n")
+cat("Conclusão:", ifelse(arch_residuos$p.value > 0.05,
+                         "Não rejeita H0 - Modelo capturou a heterocedasticidade",
+                         "Rejeita H0 - Heterocedasticidade remanescente"), "\n")
+```
+
+### 6.6 Teste de Assimetria nos Resíduos
+
+```{r teste_assimetria_residuos}
+# assimetria
+skew_test_stat <- skewness(residuos_pad) / sqrt(6/length(residuos_pad))
+skew_pvalue <- 2 * (1 - pnorm(abs(skew_test_stat)))
+
+cat("Teste de Assimetria nos Resíduos\n")
+cat("H0: Resíduos são simétricos (skewness = 0)\n")
+cat("Skewness dos resíduos:", round(skewness(residuos_pad), 4), "\n")
+cat("Estatística Z:", round(skew_test_stat, 4), "\n")
+cat("P-valor:", round(skew_pvalue, 4), "\n")
+cat("Conclusão:", ifelse(skew_pvalue > 0.05,
+                         "Não rejeita H0 - Resíduos são simétricos",
+                         "Rejeita H0 - Resíduos apresentam assimetria"), "\n")
+```
+
+### 6.7 Análise de Persistência da Volatilidade
+
+```{r persistencia}
+# medidas de persistência
+coef_eg <- coef(fit_egarch)
+beta_eg <- coef_eg["beta1"]
+
+# GARCH benchmark
+coef_g <- coef(fit_garch)
+persist_garch <- coef_g["alpha1"] + coef_g["beta1"]
+
+cat("Análise de Persistência da Volatilidade\n\n")
+
+cat("EGARCH(1,1):\n")
+cat("  β (persistência) =", round(beta_eg, 4), "\n")
+cat("  Interpretação: O coeficiente β próximo de", round(beta_eg, 2), 
+    "indica", ifelse(beta_eg > 0.9, "altíssima", "alta"), 
+    "persistência.\n")
+cat("  Choques na volatilidade têm efeito", 
+    ifelse(beta_eg > 0.95, "extremamente duradouro", "muito duradouro"), ".\n\n")
+
+cat("GARCH(1,1) Benchmark:\n")
+cat("  α + β (persistência) =", round(persist_garch, 4), "\n")
+cat("  Condição de estacionariedade: α + β < 1 →", 
+    ifelse(persist_garch < 1, "SATISFEITA", "NÃO SATISFEITA"), "\n\n")
+
+cat("Half-life da volatilidade:\n")
+if (persist_garch < 1 && persist_garch > 0) {
+  half_life <- log(0.5) / log(persist_garch)
+  cat("  Aproximadamente", round(half_life, 1), 
+      "dias para um choque reduzir pela metade.\n")
+} else {
+  cat("  Não aplicável (persistência >= 1)\n")
+}
+```
+
+## 7. Análise da Volatilidade Estimada
+
+## 7.1 Volatilidade Condicional
+
+```{r volatilidade-condicional}
+# Extrair volatilidade condicional,  em %
+vol_egarch <- sigma(fit_egarch)
+vol_garch <- sigma(fit_garch)
+
+# Criar df para plotagem
+df_vol <- data.frame(
+  Data = index(retornos),
+  Retornos = as.numeric(retornos),
+  Vol_EGARCH = as.numeric(vol_egarch),
+  Vol_GARCH = as.numeric(vol_garch)
+)
+
+# -> para formato longo (tidy) para ggplot
+df_vol_long <- melt(df_vol, id.vars = "Data", 
+                    variable.name = "Modelo", value.name = "Volatilidade")
+
+# Plotagem comparat
+ggplot(df_vol_long, aes(x = Data, y = Volatilidade, color = Modelo)) +
+  geom_line(size = 0.5, alpha = 0.8) +
+  scale_color_manual(values = c("Vol_EGARCH" = "#2c3e50", "Vol_GARCH" = "#e74c3c"),
+                     labels = c("EGARCH(1,1) Não Linear", "GARCH(1,1) Benchmark")) +
+  labs(title = "Volatilidade Condicional Estimada: EGARCH vs GARCH",
+       subtitle = "Comparação entre modelo assimétrico e simétrico",
+       x = "Data", y = "Volatilidade Condicional (%)") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        plot.title = element_text(face = "bold"))
+```
+
+## 7.2 Curva de Impacto de Notícias (News Impact Curve)
+
+A curva de impacto de notícias permite visualizar graficamente a assimetria. No modelo EGARCH, se houver efeito alavancagem (leverage) ou assimetria inversa (comum em cripto), a curva terá inclinações diferentes para choques positivos e negativos.
+
+```{r news-impact-curve}
+# News Impact Curve
+ni_egarch <- newsimpact(fit_egarch)
+
+# dados para ggplot
+df_ni <- data.frame(Epsilon = ni_egarch$zx, Response = ni_egarch$zy)
+
+# Plotar
+ggplot(df_ni, aes(x = Epsilon, y = Response)) +
+  geom_line(color = "purple", size = 1.2) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
+  labs(title = "News Impact Curve (EGARCH)",
+       subtitle = "Resposta da Volatilidade a Choques Positivos e Negativos",
+       x = "Choque Padronizado (Epsilon)", 
+       y = "Log-Variância Condicional") +
+  theme_minimal() +
+  annotate("text", x = min(df_ni$Epsilon)/2, y = max(df_ni$Response), 
+           label = "Choques Negativos", color = "red", size = 3) +
+  annotate("text", x = max(df_ni$Epsilon)/2, y = max(df_ni$Response), 
+           label = "Choques Positivos", color = "green", size = 3)
+```
+
+## 8. Conclusão e Interpretação Econômica
+
+```{r conclusao-calculos}
+# Melhor modelo
+melhor_modelo <- ifelse(aic_egarch < aic_garch, "EGARCH(1,1)", "GARCH(1,1)")
+vencedor_aic <- abs(aic_egarch - aic_garch)
+
+# -> Assimetria
+gamma_val <- coef(fit_egarch)["gamma1"]
+tipo_assimetria <- ""
+if(gamma_val < -0.05) {
+  tipo_assimetria <- "efeito alavancagem tradicional (choques negativos aumentam mais a volatilidade)"
+} else if(gamma_val > 0.05) {
+  tipo_assimetria <- "efeito alavancagem inverso (choques positivos aumentam mais a volatilidade, típico de bolhas especulativas)"
+} else {
+  tipo_assimetria <- "assimetria pouco expressiva"
+}
+
+# 3. Persistência
+beta_val <- coef(fit_egarch)["beta1"]
+nivel_persist <- ifelse(beta_val > 0.9, "alta memória", "baixa memória")
+
+# 4. Volatilidade Atual
+vol_atual <- last(vol_egarch)
+vol_media <- mean(vol_egarch)
+status_vol <- ifelse(vol_atual > vol_media, "acima", "abaixo")
+```
+
+Com base na análise econométrica realizada para o par BTC-USD no período de 2020 a 2024, concluímos:
+
+**Superioridade do Modelo Não Linear:**
+
+A comparação pelos critérios de informação demonstrou que o modelo `r melhor_modelo` se ajusta melhor aos dados (diferença de AIC de `r round(vencedor_aic, 4)` pontos). Isso confirma a hipótese inicial de que modelos lineares (GARCH padrão) são insuficientes para capturar a dinâmica complexa das criptomoedas.
+
+**Dinâmica da Assimetria:**
+
+O parâmetro $\gamma$ estimado foi de `r round(gamma_val, 4)`. Isso indica a presença de `r tipo_assimetria`. A Curva de Impacto de Notícias (Item 7.2) visualiza este fenômeno, mostrando inclinações distintas para o lado positivo e negativo do eixo X. Diferente de ativos tradicionais (como ações, onde o medo domina), o Bitcoin muitas vezes exibe volatilidade impulsionada pela euforia (FOMO) em altas de preço.
+
+**Persistência e Risco:**
+
+O coeficiente $\beta$ de `r round(beta_val, 4)` sugere que a volatilidade possui `r nivel_persist`. Choques no mercado demoram a se dissipar. Atualmente (última observação), a volatilidade encontra-se em `r round(vol_atual, 2)`%, o que está `r status_vol` da média histórica do período (`r round(vol_media, 2)`%).
+
+**Distribuição dos Retornos:**
+
+A escolha da distribuição Skewed Student-t provou-se acertada dado o parâmetro shape de `r round(coef(fit_egarch)["shape"], 2)`, confirmando a presença de caudas pesadas (maior probabilidade de eventos extremos do que uma distribuição Normal).
+
+**Recomendação:** Para gestão de risco (VaR) ou precificação de derivativos de Bitcoin, o uso do modelo EGARCH com distribuição assimétrica é estritamente recomendado em detrimento do GARCH com distribuição Normal, que subestimaria severamente o risco de cauda e a reação do mercado a choques de preço.
+
+
+# Referências: 
+https://www.quantmod.com/documentation/quantmod-package.html
+https://cran.r-project.org/web/packages/rugarch/index.html
+https://www.maths.bristol.ac.uk/R/web/packages/rugarch/vignettes/Introduction_to_the_rugarch_package.pdf    (o GOAT)
+https://r-packages.io/packages/rugarch 
+
+# Para eu mesmo no futuro: 
+https://qtanalytics.in/journals/index.php/CBR/article/view/1986
+https://www.mdpi.com/2225-1146/13/3/33 
+https://econpapers.repec.org/paper/hstghsdps/gd11-195.htm 
+https://repositorio.fgv.br/items/a49a9aee-8f8f-4c23-a4c3-899753439fd2
+https://link.springer.com/article/10.1007/s11156-019-00860-1
+https://arxiv.org/abs/2008.05147 
+
+### “No man chooses evil because it is evil; he only mistakes it for happiness, the good he seeks.” ― Mary Shelley

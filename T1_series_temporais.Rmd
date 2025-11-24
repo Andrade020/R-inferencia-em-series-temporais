@@ -1,0 +1,272 @@
+---
+title: "Análise de Séries Temporais com R"
+author: "Lucas Rafael de Andrade"
+date: ""
+output: 
+  html_document:
+    theme: cerulean
+    highlight: tango
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r packages}
+# DOCUMENT LANGUAGE: Brazilian Portuguese
+################################################################
+################################################################
+# imports
+#Fç condicional para instalar e carregar pacotes automaticamente
+load_libs <- function(libs) {
+  new_libs <- libs[!(libs %in% installed.packages()[,"Package"])]
+  if(length(new_libs)) install.packages(new_libs)
+  invisible(lapply(libs, require, character.only = TRUE))
+}
+
+libs <- c("tseries", "forecast", "lmtest", "urca", "FinTS")
+load_libs(libs)
+```
+
+# TL;DR para GitHubers
+
+Este documento apresenta a resolução da prova de Análise de Séries Temporais, utilizando R para cálculos e geração dinâmica de interpretações estatísticas.
+
+# QUESTÃO 1 - TESTES DE RAIZ UNITÁRIA
+
+## 1. Dados e Visualização
+
+Gerando a série de PIB simulado ($T=100$) conforme enunciado (Passeio Aleatório com Drift).
+
+```{r q1_data}
+set.seed(123)
+# aqui simulo  um random walk (raiz unitária) c/ leve drift
+pib <- cumsum(rnorm(100)) + 0.02*(1:100) + 100
+pib <- ts(pib)
+
+plot(pib, main = "Série PIB Simulada", ylab = "Valor", col = "blue", lwd = 2)
+grid()
+```
+
+## 2. Testes Dickey-Fuller (Pacote urca)
+
+Abaixo executamos os testes `ur.df` para as três especificações. A decisão é baseada na estatística $\tau$ (tau) comparada ao valor crítico de 5%.
+
+```{r q1_df_tests}
+# (i) Sem constante, sem tendência (tau)
+df_none <- ur.df(pib, type = "none", selectlags = "AIC")
+stat_none <- df_none@teststat[1]
+crit_none <- df_none@cval[1, "5pct"]
+#############################################################
+# (ii) Com constante, sem tendência (tau_mu)
+df_drift <- ur.df(pib, type = "drift", selectlags = "AIC")
+stat_drift <- df_drift@teststat[1, 1] # Estatística tau2
+crit_drift <- df_drift@cval[1, "5pct"]
+##############################################################
+# (iii) Com constante, com tendência (tau_tau)
+df_trend <- ur.df(pib, type = "trend", selectlags = "AIC")
+stat_trend <- df_trend@teststat[1, 1] # Estatística tau3
+crit_trend <- df_trend@cval[1, "5pct"]
+```
+
+### Resultados e Interpretação Dinâmica:
+
+**H0:** A série possui raiz unitária (Não Estacionária).  
+**H1:** A série é estacionária.
+
+**Modelo Sem Constante/Tendência:**
+
+- Estatística de Teste: `r round(stat_none, 3)`
+- Valor Crítico (5%): `r round(crit_none, 3)`
+- **Decisão:** Como a estatística é `r if(stat_none > crit_none) "maior (menos negativa)" else "menor (mais negativa)"` que o valor crítico, `r if(stat_none > crit_none) "não rejeitamos" else "rejeitamos"` a hipótese nula.
+
+**Modelo Com Drift:**
+
+- Estatística de Teste: `r round(stat_drift, 3)`
+- Valor Crítico (5%): `r round(crit_drift, 3)`
+- **Decisão:** `r if(stat_drift > crit_drift) "Não rejeitamos" else "Rejeitamos"` a hipótese nula.
+
+**Modelo Com Tendência:**
+
+- Estatística de Teste: `r round(stat_trend, 3)`
+- Valor Crítico (5%): `r round(crit_trend, 3)`
+- **Decisão:** `r if(stat_trend > crit_trend) "Não rejeitamos" else "Rejeitamos"` a hipótese nula.
+
+## 3. Teste ADF Padrão (tseries)
+
+```{r q1_adf}
+adf_res <- adf.test(pib)
+print(adf_res)
+```
+
+### Interpretação:
+
+O p-value é `r round(adf_res$p.value, 4)`. Como este valor é `r if(adf_res$p.value > 0.05) "maior" else "menor"` que 0.05, `r if(adf_res$p.value > 0.05) "não rejeitamos H0" else "rejeitamos H0"`.
+
+Isso indica que a série `r if(adf_res$p.value > 0.05) "possui raiz unitária (Não Estacionária)" else "é Estacionária"`.
+
+## 4. Teste KPSS
+
+O teste KPSS inverte as hipóteses:
+
+**H0:** A série é estacionária.  
+**H1:** A série possui raiz unitária.
+
+```{r q1_kpss}
+kpss_res <- kpss.test(pib, null = "Level")
+print(kpss_res)
+```
+
+### Interpretação:
+
+O p-value é `r if(kpss_res$p.value < 0.01) "< 0.01" else round(kpss_res$p.value, 4)`. Como este valor é menor que 0.05, **rejeitamos H0**.
+
+Isso fornece evidência a favor da não estacionariedade.
+
+## 5. Conclusão Final (Questão 1)
+
+Considerando que `r if(adf_res$p.value > 0.05 & kpss_res$p.value <= 0.05) "o teste ADF não rejeitou a presença de raiz unitária e o teste KPSS rejeitou a estacionariedade" else "houve divergência ou resultados atípicos nos testes"`, concluímos que a série PIB é **Não Estacionária**. Seria necessário aplicar diferenciação ($\Delta y_t$) para torná-la adequada para modelagem ARMA.
+
+---
+
+# QUESTÃO 2 - IDENTIFICAÇÃO E DIAGNÓSTICO ARIMA
+
+## 1. Dados e Identificação Visual
+
+Simulação do processo ARMA(2,1):
+
+```{r q2_data}
+set.seed(456)
+n <- 250
+eps <- rnorm(n)
+y <- numeric(n)
+y[1:2] <- rnorm(2)
+for(t in 3:n) {
+    # ARMA(2,1) segue essa formula:  y[t] = 0.8*y[t-1] - 0.2*y[t-2] + 0.5*eps[t-1] + eps[t]
+    y[t] <- 0.8*y[t-1] - 0.2*y[t-2] + 0.5*eps[t-1] + eps[t]
+}
+y <- ts(y)
+```
+
+### (a) Gráficos FAC e FACP
+
+```{r q2_acf_pacf, fig.width=10, fig.height=4}
+par(mfrow=c(1,2))
+Acf(y, main="Função de Autocorrelação (FAC)")
+Pacf(y, main="Autocorrelação Parcial (FACP)")
+par(mfrow=c(1,1))
+```
+
+**Interpretação Visual:**
+
+Observamos um decaimento na FAC e na FACP. Não há um corte abrupto claro no lag 1 da FAC (típico de MA puro) nem apenas no lag 2 da FACP (típico de AR puro), embora os primeiros lags sejam significativos em ambos. Esse comportamento de persistência/decaimento em ambas as funções sugere um modelo misto ARMA(p,q). Dado o enunciado, esperamos identificar p=2 e q=1.
+
+## 2. Estimação e Seleção Automática
+
+### (b) Estimação Manual ARIMA(2,0,1)
+
+```{r q2_manual}
+modelo_manual <- Arima(y, order=c(2,0,1))
+summary(modelo_manual)
+```
+
+Os coeficientes estimados foram:
+
+- **AR(1):** `r round(modelo_manual$coef["ar1"], 3)` (Real: 0.8)
+- **AR(2):** `r round(modelo_manual$coef["ar2"], 3)` (Real: -0.2)
+- **MA(1):** `r round(modelo_manual$coef["ma1"], 3)` (Real: 0.5)
+
+### (c) Seleção Automática (Auto.Arima)
+
+```{r q2_auto}
+modelo_auto <- auto.arima(y, seasonal = FALSE, stepwise = FALSE, approximation = FALSE)
+summary(modelo_auto)
+
+# Comparaç dinâmica
+aic_manual <- modelo_manual$aic
+aic_auto <- modelo_auto$aic
+melhor_aic <- min(aic_manual, aic_auto)
+```
+
+**Comparação:**
+
+- AIC do Modelo Manual (2,0,1): `r round(aic_manual, 2)`
+- AIC do Auto Arima (`r arimaorder(modelo_auto)[1]`,`r arimaorder(modelo_auto)[2]`,`r arimaorder(modelo_auto)[3]`): `r round(aic_auto, 2)`
+
+O modelo selecionado pelo auto.arima `r if(all(arimaorder(modelo_manual) == arimaorder(modelo_auto))) "coincidiu perfeitamente" else "diferiu"` da especificação teórica. O modelo com menor AIC (melhor ajuste penalizado) é o `r if(aic_manual < aic_auto) "Manual" else if (aic_manual == aic_auto) "Manual/Auto (Empate)" else "Auto Arima"`.
+
+## 3. Diagnóstico de Resíduos
+
+### (d) Teste de Ljung-Box (Independência)
+
+Verificamos se restou autocorrelação nos resíduos (se são ruído branco).
+
+```{r q2_ljungbox}
+# teste c lag=10 como pedido
+lb_teste <- Box.test(residuals(modelo_manual), lag=10, type="Ljung-Box")
+print(lb_teste)
+```
+
+**Análise do P-value:**
+
+O p-value é `r round(lb_teste$p.value, 4)`.
+
+**Conclusão:** `r if(lb_teste$p.value > 0.05) "Não regeitamos H0. Os resíduos são independentes (adequado)." else "Rejeitamos H0. Ainda há autocorrelação nos resíduos (inadequado)."`
+
+### (e) Teste ARCH-LM (Homocedasticidade)
+
+Verificamos se há heterocedasticidade condicional (efeito ARCH).
+
+```{r q2_arch}
+# Requer pacote FinTS
+arch_res <- FinTS::ArchTest(residuals(modelo_manual), lags=5)
+print(arch_res)
+```
+
+**Análise do P-value:**
+
+O p-value é `r round(arch_res$p.value, 4)`.
+
+**Conclusão:** `r if(arch_res$p.value > 0.05) "Não rejeitamos H0. Os resíduos são homocedásticos (variância constante)." else "Rejeitamos H0. Há presença de efeitos ARCH."`
+
+---
+
+# Referências e Agradecimentos
+Gostaria de agradecer primeiro ao Fernando da Silva (YT: Anal. Macro) pelas incríveis aulas, bem como a Professora Vanessa Manhães(YT: homônimo). 
+
+Também agradecer aos desenvolvedores da IA llama-2-7b-chat.Q4_K_M
+
+https://stats.stackexchange.com/questions/24072/interpreting-rs-ur-df-dickey-fuller-unit-root-test-results
+
+links:
+
+https://cran.r-project.org/web/packages/urca/urca.pdf
+
+https://atsa-es.github.io/atsa-labs/sec-boxjenkins-aug-dickey-fuller.html
+
+https://www.r-bloggers.com/2021/12/augmented-dickey-fuller-adf-test-in-r/
+
+https://otexts.com/fpp2/arima-r.html
+
+https://www.rdocumentation.org/packages/forecast/versions/8.24.0/topics/auto.arima
+
+https://blogs.oracle.com/ai-and-datascience/introduction-to-forecasting-with-arima-in-r
+
+https://www.listendata.com/2015/10/arima-modeling-with-r.html
+
+https://search.r-project.org/CRAN/refmans/nortsTest/html/arch.test.html
+
+https://restateinsight.com/posts/general-posts/repost-arima-no-r/
+
+https://www.youtube.com/watch?v=nm45WagtV3w
+
+
+"Nesse mundo nada de cria, tudo se copia" - D. Robaina, o melhor professor de programação!
+
+
+Esse código é de Lucas? 
+
+
+verificação: kjhfdsakldfjaslkdfjs ldksdflkjhfsalkjsdflksdflkjs

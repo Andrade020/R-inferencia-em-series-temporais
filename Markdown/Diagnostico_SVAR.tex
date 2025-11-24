@@ -1,0 +1,890 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\documentclass[
+]{article}
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabu}
+\usepackage{threeparttable}
+\usepackage{threeparttablex}
+\usepackage[normalem]{ulem}
+\usepackage{makecell}
+\usepackage{xcolor}
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={Dinâmica dos Hiatos do Produto e do Mercado de Trabalho no Brasil},
+  pdfauthor={Lucas Rafael de Andrade},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{Dinâmica dos Hiatos do Produto e do Mercado de Trabalho no
+Brasil}
+\usepackage{etoolbox}
+\makeatletter
+\providecommand{\subtitle}[1]{% add subtitle to \maketitle
+  \apptocmd{\@title}{\par {\large #1 \par}}{}{}
+}
+\makeatother
+\subtitle{Uma Abordagem com Modelo SVAR}
+\author{Lucas Rafael de Andrade}
+\date{2025-11-21}
+
+\begin{document}
+\maketitle
+
+{
+\setcounter{tocdepth}{2}
+\tableofcontents
+}
+\section{1. Introdução}\label{introduuxe7uxe3o}
+
+Este documento apresenta a análise da dinâmica dos hiatos do produto e
+do mercado de trabalho no Brasil utilizando um modelo SVAR (Structural
+Vector Autoregression).
+
+\subsection{1.1 Pacotes Necessários}\label{pacotes-necessuxe1rios}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Instalação (descomente se necessário)}
+\CommentTok{\# install.packages(c("readxl", "dplyr", "vars", "zoo", "tseries", "knitr", "kableExtra"))}
+
+\FunctionTok{library}\NormalTok{(readxl)}
+\FunctionTok{library}\NormalTok{(dplyr)}
+\FunctionTok{library}\NormalTok{(vars)}
+\FunctionTok{library}\NormalTok{(zoo)}
+\FunctionTok{library}\NormalTok{(tseries)}
+\FunctionTok{library}\NormalTok{(knitr)}
+\FunctionTok{library}\NormalTok{(kableExtra)}
+\end{Highlighting}
+\end{Shaded}
+
+\subsection{1.2 Configurações
+Iniciais}\label{configurauxe7uxf5es-iniciais}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Caminho para o arquivo principal}
+\NormalTok{PATH\_MAIN }\OtherTok{\textless{}{-}} \StringTok{"C:}\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{Users}\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{LucasRafaeldeAndrade}\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{Desktop}\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{Repositorios}\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{Dinamica{-}dos{-}hiatos{-}do{-}produto{-}e{-}do{-}mercado{-}de{-}trabalho{-}no{-}Brasil{-}uma{-}abordagem{-}com{-}modelo{-}SVAR}\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{Serie\_Hiato.xlsx"}
+
+\CommentTok{\# Variáveis de interesse}
+\NormalTok{ALL\_VARS }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{\textquotesingle{}hiato\_PIB\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}hiato\_L\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}Selic\_meta\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}Cambio\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}IPCA\_indice\textquotesingle{}}\NormalTok{)}
+
+\CommentTok{\# Período de início}
+\NormalTok{PERIODO\_INICIO }\OtherTok{\textless{}{-}} \StringTok{"2012 Q2"}
+
+\CommentTok{\# Número de defasagens}
+\NormalTok{LAGS\_P }\OtherTok{\textless{}{-}} \DecValTok{4}
+\end{Highlighting}
+\end{Shaded}
+
+\section{2. Carregamento e Preparação dos
+Dados}\label{carregamento-e-preparauxe7uxe3o-dos-dados}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{df\_main }\OtherTok{\textless{}{-}} \FunctionTok{read\_excel}\NormalTok{(PATH\_MAIN)}
+
+\CommentTok{\# Convertendo coluna Trimestre para formato de data trimestral}
+\NormalTok{df\_main}\SpecialCharTok{$}\NormalTok{Trimestre }\OtherTok{\textless{}{-}} \FunctionTok{as.yearqtr}\NormalTok{(df\_main}\SpecialCharTok{$}\NormalTok{Trimestre)}
+
+\CommentTok{\# Filtrar período e selecionar colunas}
+\NormalTok{df\_analysis }\OtherTok{\textless{}{-}}\NormalTok{ df\_main }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{filter}\NormalTok{(Trimestre }\SpecialCharTok{\textgreater{}=} \FunctionTok{as.yearqtr}\NormalTok{(PERIODO\_INICIO)) }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{(Trimestre, }\FunctionTok{all\_of}\NormalTok{(ALL\_VARS)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{na.omit}\NormalTok{()}
+
+\CommentTok{\# Converter para objeto de Série Temporal (ts)}
+\NormalTok{start\_date }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}
+  \FunctionTok{as.integer}\NormalTok{(}\FunctionTok{format}\NormalTok{(df\_analysis}\SpecialCharTok{$}\NormalTok{Trimestre[}\DecValTok{1}\NormalTok{], }\StringTok{"\%Y"}\NormalTok{)), }
+  \FunctionTok{as.integer}\NormalTok{(}\FunctionTok{format}\NormalTok{(df\_analysis}\SpecialCharTok{$}\NormalTok{Trimestre[}\DecValTok{1}\NormalTok{], }\StringTok{"\%q"}\NormalTok{))}
+\NormalTok{)}
+
+\NormalTok{ts\_data }\OtherTok{\textless{}{-}} \FunctionTok{ts}\NormalTok{(df\_analysis[, ALL\_VARS], }\AttributeTok{start =}\NormalTok{ start\_date, }\AttributeTok{frequency =} \DecValTok{4}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\subsection{2.1 Visualização dos
+Dados}\label{visualizauxe7uxe3o-dos-dados}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Tabela com primeiras observações}
+\FunctionTok{head}\NormalTok{(df\_analysis, }\DecValTok{10}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{kable}\NormalTok{(}\AttributeTok{caption =} \StringTok{"Primeiras Observações dos Dados"}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{kable\_styling}\NormalTok{(}\AttributeTok{bootstrap\_options =} \FunctionTok{c}\NormalTok{(}\StringTok{"striped"}\NormalTok{, }\StringTok{"hover"}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[t]{lrrrrr}
+\caption{\label{tab:viz-dados}Primeiras Observações dos Dados}\\
+\toprule
+Trimestre & hiato\_PIB & hiato\_L & Selic\_meta & Cambio & IPCA\_indice\\
+\midrule
+2012 Q2 & 10.489156 & -2.1439544 & 8.975806 & 1.8912 & 0.3600000\\
+2012 Q3 & 12.431776 & -1.0033167 & 7.890625 & 2.0494 & 0.4700000\\
+2012 Q4 & 11.950984 & -0.5560813 & 7.282258 & 2.0308 & 0.6600000\\
+2013 Q1 & 10.538865 & -3.1185321 & 7.250000 & 1.9877 & 0.6433333\\
+2013 Q2 & 14.548177 & -1.9564544 & 7.615079 & 2.0011 & 0.3933333\\
+\addlinespace
+2013 Q3 & 13.658551 & -0.8030808 & 8.613636 & 2.2897 & 0.2066667\\
+2013 Q4 & 12.202405 & 1.0486149 & 9.625000 & 2.2020 & 0.6766667\\
+2014 Q1 & 11.886952 & -1.3154636 & 10.504098 & 2.4257 & 0.7200000\\
+2014 Q2 & 8.563593 & -0.6190263 & 10.991803 & 2.2354 & 0.5100000\\
+2014 Q3 & 6.867626 & -0.4028470 & 11.000000 & 2.2668 & 0.2766667\\
+\bottomrule
+\end{longtable}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Gráfico das séries em nível}
+\FunctionTok{plot}\NormalTok{(ts\_data, }\AttributeTok{main =} \StringTok{"Séries Temporais em Nível"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/plot-series-1.pdf}}
+
+\section{3. Estacionariedade}\label{estacionariedade}
+
+Aplicamos a primeira diferença em todas as variáveis, assumindo que são
+I(1).
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{ts\_diff }\OtherTok{\textless{}{-}} \FunctionTok{diff}\NormalTok{(ts\_data)}
+
+\FunctionTok{cat}\NormalTok{(}\StringTok{"Número de observações após diferenciação:"}\NormalTok{, }\FunctionTok{nrow}\NormalTok{(ts\_diff), }\StringTok{"}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Número de observações após diferenciação: 52
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{cat}\NormalTok{(}\StringTok{"Variáveis:"}\NormalTok{, }\FunctionTok{paste}\NormalTok{(}\FunctionTok{colnames}\NormalTok{(ts\_diff), }\AttributeTok{collapse =} \StringTok{", "}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Variáveis: hiato_PIB, hiato_L, Selic_meta, Cambio, IPCA_indice
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{plot}\NormalTok{(ts\_diff, }\AttributeTok{main =} \StringTok{"Séries Temporais em Primeira Diferença"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/plot-diff-1.pdf}}
+
+\section{4. Variáveis Dummy
+Exógenas}\label{variuxe1veis-dummy-exuxf3genas}
+
+Criamos dummies para capturar choques específicos:
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{2020 Q2}: Pandemia de COVID-19
+\item
+  \textbf{2015 Q2}: Recessão econômica
+\end{itemize}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{n\_obs }\OtherTok{\textless{}{-}} \FunctionTok{nrow}\NormalTok{(ts\_diff)}
+\NormalTok{time\_index }\OtherTok{\textless{}{-}} \FunctionTok{time}\NormalTok{(ts\_diff)}
+
+\NormalTok{mat\_dummies }\OtherTok{\textless{}{-}} \FunctionTok{matrix}\NormalTok{(}\DecValTok{0}\NormalTok{, }\AttributeTok{nrow =}\NormalTok{ n\_obs, }\AttributeTok{ncol =} \DecValTok{2}\NormalTok{)}
+\FunctionTok{colnames}\NormalTok{(mat\_dummies) }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{"dummy\_2020Q2"}\NormalTok{, }\StringTok{"dummy\_2015Q2"}\NormalTok{)}
+
+\CommentTok{\# Dummy Pandemia (2020 Q2)}
+\NormalTok{idx\_2020 }\OtherTok{\textless{}{-}} \FunctionTok{which}\NormalTok{(time\_index }\SpecialCharTok{==} \FloatTok{2020.25}\NormalTok{)}
+\ControlFlowTok{if}\NormalTok{(}\FunctionTok{length}\NormalTok{(idx\_2020) }\SpecialCharTok{\textgreater{}} \DecValTok{0}\NormalTok{) \{}
+\NormalTok{  mat\_dummies[idx\_2020, }\StringTok{"dummy\_2020Q2"}\NormalTok{] }\OtherTok{\textless{}{-}} \DecValTok{1}
+  \FunctionTok{cat}\NormalTok{(}\StringTok{"✓ Dummy para 2020{-}Q2 criada.}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\NormalTok{)}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## ✓ Dummy para 2020-Q2 criada.
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Dummy Recessão (2015 Q2)}
+\NormalTok{idx\_2015 }\OtherTok{\textless{}{-}} \FunctionTok{which}\NormalTok{(time\_index }\SpecialCharTok{==} \FloatTok{2015.25}\NormalTok{)}
+\ControlFlowTok{if}\NormalTok{(}\FunctionTok{length}\NormalTok{(idx\_2015) }\SpecialCharTok{\textgreater{}} \DecValTok{0}\NormalTok{) \{}
+\NormalTok{  mat\_dummies[idx\_2015, }\StringTok{"dummy\_2015Q2"}\NormalTok{] }\OtherTok{\textless{}{-}} \DecValTok{1}
+  \FunctionTok{cat}\NormalTok{(}\StringTok{"✓ Dummy para 2015{-}Q2 criada.}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\NormalTok{)}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## ✓ Dummy para 2015-Q2 criada.
+\end{verbatim}
+
+\section{5. Estimação do Modelo VAR
+Reduzido}\label{estimauxe7uxe3o-do-modelo-var-reduzido}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{model\_var }\OtherTok{\textless{}{-}} \FunctionTok{VAR}\NormalTok{(ts\_diff, }\AttributeTok{p =}\NormalTok{ LAGS\_P, }\AttributeTok{type =} \StringTok{"const"}\NormalTok{, }\AttributeTok{exogen =}\NormalTok{ mat\_dummies)}
+
+\FunctionTok{summary}\NormalTok{(model\_var)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## 
+## VAR Estimation Results:
+## ========================= 
+## Endogenous variables: hiato_PIB, hiato_L, Selic_meta, Cambio, IPCA_indice 
+## Deterministic variables: const 
+## Sample size: 48 
+## Log Likelihood: -144.536 
+## Roots of the characteristic polynomial:
+## 0.9842 0.9656 0.9656 0.9158 0.9158 0.8627 0.8627 0.8474 0.8474 0.8098 0.8098 0.8073 0.8073 0.7773 0.6504 0.6504 0.6395 0.6395 0.4674 0.4674
+## Call:
+## VAR(y = ts_diff, p = LAGS_P, type = "const", exogen = mat_dummies)
+## 
+## 
+## Estimation results for equation hiato_PIB: 
+## ========================================== 
+## hiato_PIB = hiato_PIB.l1 + hiato_L.l1 + Selic_meta.l1 + Cambio.l1 + IPCA_indice.l1 + hiato_PIB.l2 + hiato_L.l2 + Selic_meta.l2 + Cambio.l2 + IPCA_indice.l2 + hiato_PIB.l3 + hiato_L.l3 + Selic_meta.l3 + Cambio.l3 + IPCA_indice.l3 + hiato_PIB.l4 + hiato_L.l4 + Selic_meta.l4 + Cambio.l4 + IPCA_indice.l4 + const + dummy_2020Q2 + dummy_2015Q2 
+## 
+##                 Estimate Std. Error t value Pr(>|t|)    
+## hiato_PIB.l1    -0.33944    0.17596  -1.929   0.0652 .  
+## hiato_L.l1       0.02905    0.42276   0.069   0.9458    
+## Selic_meta.l1   -0.64679    2.16634  -0.299   0.7677    
+## Cambio.l1        2.60084    2.88299   0.902   0.3756    
+## IPCA_indice.l1  -2.76003    3.25937  -0.847   0.4051    
+## hiato_PIB.l2    -0.16510    0.16806  -0.982   0.3353    
+## hiato_L.l2      -0.06411    0.40231  -0.159   0.8747    
+## Selic_meta.l2    2.20117    3.41295   0.645   0.5248    
+## Cambio.l2        2.18028    3.08931   0.706   0.4869    
+## IPCA_indice.l2  -7.20831    3.35516  -2.148   0.0416 *  
+## hiato_PIB.l3    -0.07636    0.16159  -0.473   0.6406    
+## hiato_L.l3       0.38396    0.41713   0.920   0.3661    
+## Selic_meta.l3   -4.40106    3.28871  -1.338   0.1929    
+## Cambio.l3        3.00388    3.13044   0.960   0.3465    
+## IPCA_indice.l3  -5.54477    3.52951  -1.571   0.1288    
+## hiato_PIB.l4    -0.13457    0.15919  -0.845   0.4060    
+## hiato_L.l4       0.65161    0.36383   1.791   0.0854 .  
+## Selic_meta.l4    1.16624    2.15481   0.541   0.5931    
+## Cambio.l4       -2.54971    2.98895  -0.853   0.4017    
+## IPCA_indice.l4  -3.55478    3.41854  -1.040   0.3084    
+## const            0.40557    0.77493   0.523   0.6053    
+## dummy_2020Q2   -25.69596    5.12097  -5.018 3.56e-05 ***
+## dummy_2015Q2    -8.84095    5.30442  -1.667   0.1081    
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## 
+## Residual standard error: 4.182 on 25 degrees of freedom
+## Multiple R-Squared: 0.7493,  Adjusted R-squared: 0.5287 
+## F-statistic: 3.396 on 22 and 25 DF,  p-value: 0.001949 
+## 
+## 
+## Estimation results for equation hiato_L: 
+## ======================================== 
+## hiato_L = hiato_PIB.l1 + hiato_L.l1 + Selic_meta.l1 + Cambio.l1 + IPCA_indice.l1 + hiato_PIB.l2 + hiato_L.l2 + Selic_meta.l2 + Cambio.l2 + IPCA_indice.l2 + hiato_PIB.l3 + hiato_L.l3 + Selic_meta.l3 + Cambio.l3 + IPCA_indice.l3 + hiato_PIB.l4 + hiato_L.l4 + Selic_meta.l4 + Cambio.l4 + IPCA_indice.l4 + const + dummy_2020Q2 + dummy_2015Q2 
+## 
+##                Estimate Std. Error t value Pr(>|t|)    
+## hiato_PIB.l1    0.04991    0.05801   0.860   0.3978    
+## hiato_L.l1     -0.10859    0.13938  -0.779   0.4432    
+## Selic_meta.l1  -0.13526    0.71421  -0.189   0.8513    
+## Cambio.l1      -0.96147    0.95048  -1.012   0.3214    
+## IPCA_indice.l1  1.40171    1.07457   1.304   0.2040    
+## hiato_PIB.l2    0.07660    0.05541   1.383   0.1790    
+## hiato_L.l2      0.01173    0.13264   0.088   0.9303    
+## Selic_meta.l2   1.02279    1.12520   0.909   0.3720    
+## Cambio.l2      -0.58275    1.01850  -0.572   0.5723    
+## IPCA_indice.l2  0.92622    1.10615   0.837   0.4103    
+## hiato_PIB.l3    0.08623    0.05327   1.619   0.1181    
+## hiato_L.l3     -0.31101    0.13752  -2.262   0.0327 *  
+## Selic_meta.l3  -0.36862    1.08424  -0.340   0.7367    
+## Cambio.l3      -0.93898    1.03206  -0.910   0.3716    
+## IPCA_indice.l3  1.40100    1.16363   1.204   0.2399    
+## hiato_PIB.l4    0.09371    0.05248   1.785   0.0863 .  
+## hiato_L.l4      0.69310    0.11995   5.778 5.06e-06 ***
+## Selic_meta.l4  -0.40944    0.71041  -0.576   0.5695    
+## Cambio.l4      -0.88221    0.98542  -0.895   0.3792    
+## IPCA_indice.l4 -0.66945    1.12705  -0.594   0.5579    
+## const           0.42297    0.25548   1.656   0.1103    
+## dummy_2020Q2   -3.34324    1.68831  -1.980   0.0588 .  
+## dummy_2015Q2   -2.43477    1.74880  -1.392   0.1761    
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## 
+## Residual standard error: 1.379 on 25 degrees of freedom
+## Multiple R-Squared: 0.7847,  Adjusted R-squared: 0.5951 
+## F-statistic: 4.141 on 22 and 25 DF,  p-value: 0.0004386 
+## 
+## 
+## Estimation results for equation Selic_meta: 
+## =========================================== 
+## Selic_meta = hiato_PIB.l1 + hiato_L.l1 + Selic_meta.l1 + Cambio.l1 + IPCA_indice.l1 + hiato_PIB.l2 + hiato_L.l2 + Selic_meta.l2 + Cambio.l2 + IPCA_indice.l2 + hiato_PIB.l3 + hiato_L.l3 + Selic_meta.l3 + Cambio.l3 + IPCA_indice.l3 + hiato_PIB.l4 + hiato_L.l4 + Selic_meta.l4 + Cambio.l4 + IPCA_indice.l4 + const + dummy_2020Q2 + dummy_2015Q2 
+## 
+##                 Estimate Std. Error t value Pr(>|t|)    
+## hiato_PIB.l1    0.014420   0.015784   0.914   0.3697    
+## hiato_L.l1      0.045548   0.037922   1.201   0.2410    
+## Selic_meta.l1   1.431981   0.194325   7.369 1.02e-07 ***
+## Cambio.l1       0.297160   0.258610   1.149   0.2614    
+## IPCA_indice.l1  0.069654   0.292371   0.238   0.8136    
+## hiato_PIB.l2   -0.013013   0.015075  -0.863   0.3962    
+## hiato_L.l2      0.006529   0.036088   0.181   0.8579    
+## Selic_meta.l2  -0.442363   0.306148  -1.445   0.1609    
+## Cambio.l2       0.346280   0.277117   1.250   0.2230    
+## IPCA_indice.l2  0.254928   0.300964   0.847   0.4050    
+## hiato_PIB.l3    0.020299   0.014495   1.400   0.1737    
+## hiato_L.l3      0.046042   0.037418   1.230   0.2300    
+## Selic_meta.l3  -0.576406   0.295003  -1.954   0.0620 .  
+## Cambio.l3       0.108807   0.280806   0.387   0.7017    
+## IPCA_indice.l3 -0.083901   0.316604  -0.265   0.7932    
+## hiato_PIB.l4    0.006802   0.014280   0.476   0.6380    
+## hiato_L.l4     -0.039555   0.032636  -1.212   0.2368    
+## Selic_meta.l4   0.449583   0.193290   2.326   0.0284 *  
+## Cambio.l4       0.292018   0.268115   1.089   0.2865    
+## IPCA_indice.l4  0.473111   0.306649   1.543   0.1354    
+## const          -0.042330   0.069512  -0.609   0.5480    
+## dummy_2020Q2   -0.607122   0.459360  -1.322   0.1982    
+## dummy_2015Q2   -0.328996   0.475817  -0.691   0.4957    
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## 
+## Residual standard error: 0.3751 on 25 degrees of freedom
+## Multiple R-Squared: 0.9342,  Adjusted R-squared: 0.8762 
+## F-statistic: 16.12 on 22 and 25 DF,  p-value: 7.85e-10 
+## 
+## 
+## Estimation results for equation Cambio: 
+## ======================================= 
+## Cambio = hiato_PIB.l1 + hiato_L.l1 + Selic_meta.l1 + Cambio.l1 + IPCA_indice.l1 + hiato_PIB.l2 + hiato_L.l2 + Selic_meta.l2 + Cambio.l2 + IPCA_indice.l2 + hiato_PIB.l3 + hiato_L.l3 + Selic_meta.l3 + Cambio.l3 + IPCA_indice.l3 + hiato_PIB.l4 + hiato_L.l4 + Selic_meta.l4 + Cambio.l4 + IPCA_indice.l4 + const + dummy_2020Q2 + dummy_2015Q2 
+## 
+##                  Estimate Std. Error t value Pr(>|t|)    
+## hiato_PIB.l1    4.442e-03  1.024e-02   0.434 0.668234    
+## hiato_L.l1      2.281e-02  2.461e-02   0.927 0.362802    
+## Selic_meta.l1  -7.335e-02  1.261e-01  -0.582 0.565992    
+## Cambio.l1      -1.544e-02  1.678e-01  -0.092 0.927413    
+## IPCA_indice.l1  1.034e-01  1.897e-01   0.545 0.590620    
+## hiato_PIB.l2   -1.119e-02  9.783e-03  -1.144 0.263498    
+## hiato_L.l2     -5.662e-03  2.342e-02  -0.242 0.810922    
+## Selic_meta.l2   4.740e-02  1.987e-01   0.239 0.813379    
+## Cambio.l2      -7.032e-02  1.798e-01  -0.391 0.699102    
+## IPCA_indice.l2  8.653e-02  1.953e-01   0.443 0.661557    
+## hiato_PIB.l3   -6.547e-03  9.407e-03  -0.696 0.492855    
+## hiato_L.l3      5.587e-05  2.428e-02   0.002 0.998182    
+## Selic_meta.l3  -6.018e-02  1.914e-01  -0.314 0.755864    
+## Cambio.l3      -1.136e-01  1.822e-01  -0.623 0.538835    
+## IPCA_indice.l3  1.453e-01  2.055e-01   0.707 0.485993    
+## hiato_PIB.l4   -1.082e-02  9.267e-03  -1.168 0.253877    
+## hiato_L.l4      3.774e-02  2.118e-02   1.782 0.086882 .  
+## Selic_meta.l4  -1.778e-02  1.254e-01  -0.142 0.888432    
+## Cambio.l4      -3.989e-02  1.740e-01  -0.229 0.820546    
+## IPCA_indice.l4  3.585e-01  1.990e-01   1.801 0.083706 .  
+## const           6.869e-02  4.511e-02   1.523 0.140404    
+## dummy_2020Q2    1.232e+00  2.981e-01   4.133 0.000351 ***
+## dummy_2015Q2    3.718e-01  3.088e-01   1.204 0.239833    
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## 
+## Residual standard error: 0.2434 on 25 degrees of freedom
+## Multiple R-Squared: 0.6653,  Adjusted R-squared: 0.3707 
+## F-statistic: 2.258 on 22 and 25 DF,  p-value: 0.02565 
+## 
+## 
+## Estimation results for equation IPCA_indice: 
+## ============================================ 
+## IPCA_indice = hiato_PIB.l1 + hiato_L.l1 + Selic_meta.l1 + Cambio.l1 + IPCA_indice.l1 + hiato_PIB.l2 + hiato_L.l2 + Selic_meta.l2 + Cambio.l2 + IPCA_indice.l2 + hiato_PIB.l3 + hiato_L.l3 + Selic_meta.l3 + Cambio.l3 + IPCA_indice.l3 + hiato_PIB.l4 + hiato_L.l4 + Selic_meta.l4 + Cambio.l4 + IPCA_indice.l4 + const + dummy_2020Q2 + dummy_2015Q2 
+## 
+##                 Estimate Std. Error t value Pr(>|t|)   
+## hiato_PIB.l1    0.015080   0.009558   1.578  0.12719   
+## hiato_L.l1     -0.017290   0.022963  -0.753  0.45852   
+## Selic_meta.l1   0.239090   0.117669   2.032  0.05292 . 
+## Cambio.l1       0.486318   0.156595   3.106  0.00468 **
+## IPCA_indice.l1 -0.544843   0.177039  -3.078  0.00501 **
+## hiato_PIB.l2   -0.002628   0.009129  -0.288  0.77584   
+## hiato_L.l2      0.036165   0.021852   1.655  0.11043   
+## Selic_meta.l2  -0.251756   0.185381  -1.358  0.18658   
+## Cambio.l2       0.325580   0.167802   1.940  0.06371 . 
+## IPCA_indice.l2 -0.625303   0.182242  -3.431  0.00210 **
+## hiato_PIB.l3    0.004600   0.008777   0.524  0.60486   
+## hiato_L.l3     -0.032004   0.022657  -1.413  0.17012   
+## Selic_meta.l3  -0.186474   0.178633  -1.044  0.30652   
+## Cambio.l3      -0.183355   0.170036  -1.078  0.29118   
+## IPCA_indice.l3 -0.067188   0.191712  -0.350  0.72893   
+## hiato_PIB.l4    0.020920   0.008647   2.419  0.02315 * 
+## hiato_L.l4     -0.034662   0.019762  -1.754  0.09169 . 
+## Selic_meta.l4   0.254427   0.117043   2.174  0.03940 * 
+## Cambio.l4       0.108708   0.162351   0.670  0.50926   
+## IPCA_indice.l4 -0.034677   0.185684  -0.187  0.85336   
+## const          -0.050438   0.042092  -1.198  0.24204   
+## dummy_2020Q2   -0.646383   0.278155  -2.324  0.02856 * 
+## dummy_2015Q2   -0.260344   0.288120  -0.904  0.37483   
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## 
+## Residual standard error: 0.2271 on 25 degrees of freedom
+## Multiple R-Squared: 0.811,   Adjusted R-squared: 0.6447 
+## F-statistic: 4.876 on 22 and 25 DF,  p-value: 0.0001153 
+## 
+## 
+## 
+## Covariance matrix of residuals:
+##             hiato_PIB  hiato_L Selic_meta   Cambio IPCA_indice
+## hiato_PIB    17.48804  1.89405   -0.13051 -0.40574     0.02382
+## hiato_L       1.89405  1.90083    0.17185 -0.08520     0.02711
+## Selic_meta   -0.13051  0.17185    0.14072  0.01373     0.01559
+## Cambio       -0.40574 -0.08520    0.01373  0.05926     0.01607
+## IPCA_indice   0.02382  0.02711    0.01559  0.01607     0.05160
+## 
+## Correlation matrix of residuals:
+##             hiato_PIB  hiato_L Selic_meta  Cambio IPCA_indice
+## hiato_PIB     1.00000  0.32851   -0.08319 -0.3986     0.02508
+## hiato_L       0.32851  1.00000    0.33229 -0.2539     0.08657
+## Selic_meta   -0.08319  0.33229    1.00000  0.1504     0.18291
+## Cambio       -0.39856 -0.25387    0.15039  1.0000     0.29054
+## IPCA_indice   0.02508  0.08657    0.18291  0.2905     1.00000
+\end{verbatim}
+
+\section{6. Diagnósticos
+Pós-Estimação}\label{diagnuxf3sticos-puxf3s-estimauxe7uxe3o}
+
+\subsection{6.1 Autocorrelação Serial (Teste
+Portmanteau)}\label{autocorrelauxe7uxe3o-serial-teste-portmanteau}
+
+\(H_0\): Não há autocorrelação serial nos resíduos.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{serial\_test }\OtherTok{\textless{}{-}} \FunctionTok{serial.test}\NormalTok{(model\_var, }\AttributeTok{lags.pt =}\NormalTok{ LAGS\_P }\SpecialCharTok{*} \DecValTok{2}\NormalTok{, }\AttributeTok{type =} \StringTok{"PT.asymptotic"}\NormalTok{)}
+\FunctionTok{print}\NormalTok{(serial\_test)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## 
+##  Portmanteau Test (asymptotic)
+## 
+## data:  Residuals of VAR object model_var
+## Chi-squared = 180.18, df = 100, p-value = 1.581e-06
+\end{verbatim}
+
+\begin{verbatim}
+## $serial
+## 
+##  Portmanteau Test (asymptotic)
+## 
+## data:  Residuals of VAR object model_var
+## Chi-squared = 180.18, df = 100, p-value = 1.581e-06
+\end{verbatim}
+
+\subsection{6.2 Normalidade dos Resíduos
+(Jarque-Bera)}\label{normalidade-dos-resuxedduos-jarque-bera}
+
+\(H_0\): Os resíduos seguem distribuição normal.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{norm\_test }\OtherTok{\textless{}{-}} \FunctionTok{normality.test}\NormalTok{(model\_var, }\AttributeTok{multivariate.only =} \ConstantTok{FALSE}\NormalTok{)}
+\FunctionTok{print}\NormalTok{(norm\_test}\SpecialCharTok{$}\NormalTok{jb.mul)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## $JB
+## 
+##  JB-Test (multivariate)
+## 
+## data:  Residuals of VAR object model_var
+## Chi-squared = 17.991, df = 10, p-value = 0.05511
+## 
+## 
+## $Skewness
+## 
+##  Skewness only (multivariate)
+## 
+## data:  Residuals of VAR object model_var
+## Chi-squared = 9.4001, df = 5, p-value = 0.09413
+## 
+## 
+## $Kurtosis
+## 
+##  Kurtosis only (multivariate)
+## 
+## data:  Residuals of VAR object model_var
+## Chi-squared = 8.5912, df = 5, p-value = 0.1265
+\end{verbatim}
+
+\subsection{6.3 Estabilidade do Modelo}\label{estabilidade-do-modelo}
+
+O modelo é estável se todas as raízes características têm módulo menor
+que 1.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{roots\_modulus }\OtherTok{\textless{}{-}} \FunctionTok{roots}\NormalTok{(model\_var, }\AttributeTok{modulus =} \ConstantTok{TRUE}\NormalTok{)}
+
+\FunctionTok{cat}\NormalTok{(}\StringTok{"Raízes características (módulo):}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Raízes características (módulo):
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{print}\NormalTok{(roots\_modulus)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##  [1] 0.9841873 0.9655615 0.9655615 0.9158201 0.9158201 0.8627444 0.8627444
+##  [8] 0.8474054 0.8474054 0.8098282 0.8098282 0.8073138 0.8073138 0.7773091
+## [15] 0.6504207 0.6504207 0.6395179 0.6395179 0.4674471 0.4674471
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\ControlFlowTok{if}\NormalTok{(}\FunctionTok{all}\NormalTok{(roots\_modulus }\SpecialCharTok{\textless{}} \DecValTok{1}\NormalTok{)) \{}
+  \FunctionTok{cat}\NormalTok{(}\StringTok{"}\SpecialCharTok{\textbackslash{}n}\StringTok{✓ RESULTADO: O modelo é ESTÁVEL. (Todas as raízes \textless{} 1)}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\NormalTok{)}
+\NormalTok{\} }\ControlFlowTok{else}\NormalTok{ \{}
+  \FunctionTok{cat}\NormalTok{(}\StringTok{"}\SpecialCharTok{\textbackslash{}n}\StringTok{⚠ ALERTA: O modelo é INSTÁVEL.}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\NormalTok{)}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## 
+## ✓ RESULTADO: O modelo é ESTÁVEL. (Todas as raízes < 1)
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{plot}\NormalTok{(}\FunctionTok{stability}\NormalTok{(model\_var))}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/plot-roots-1.pdf}}
+
+\section{7. Análise Estrutural (SVAR)}\label{anuxe1lise-estrutural-svar}
+
+\subsection{7.1 Ordenação de
+Cholesky}\label{ordenauxe7uxe3o-de-cholesky}
+
+A identificação estrutural é feita via decomposição de Cholesky, com a
+seguinte ordenação (do mais exógeno ao mais endógeno):
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Câmbio
+\item
+  IPCA (índice)
+\item
+  Selic meta
+\item
+  Hiato do PIB
+\item
+  Hiato do mercado de trabalho (L)
+\end{enumerate}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{cholesky\_order }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{\textquotesingle{}Cambio\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}IPCA\_indice\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}Selic\_meta\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}hiato\_PIB\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}hiato\_L\textquotesingle{}}\NormalTok{)}
+
+\NormalTok{ts\_ordered }\OtherTok{\textless{}{-}}\NormalTok{ ts\_diff[, cholesky\_order]}
+
+\NormalTok{model\_ordered }\OtherTok{\textless{}{-}} \FunctionTok{VAR}\NormalTok{(ts\_ordered, }\AttributeTok{p =}\NormalTok{ LAGS\_P, }\AttributeTok{type =} \StringTok{"const"}\NormalTok{, }\AttributeTok{exogen =}\NormalTok{ mat\_dummies)}
+\end{Highlighting}
+\end{Shaded}
+
+\subsection{7.2 Funções Impulso-Resposta
+(IRF)}\label{funuxe7uxf5es-impulso-resposta-irf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{irf\_res }\OtherTok{\textless{}{-}} \FunctionTok{irf}\NormalTok{(model\_ordered, }\AttributeTok{n.ahead =} \DecValTok{20}\NormalTok{, }\AttributeTok{ortho =} \ConstantTok{TRUE}\NormalTok{, }\AttributeTok{boot =} \ConstantTok{TRUE}\NormalTok{, }\AttributeTok{runs =} \DecValTok{100}\NormalTok{)}
+
+\FunctionTok{plot}\NormalTok{(irf\_res)}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/irf-1.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/irf-2.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/irf-3.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/irf-4.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/irf-5.pdf}}
+
+\subsubsection{IRFs Específicas}\label{irfs-especuxedficas}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Resposta do hiato\_PIB a choques}
+\NormalTok{irf\_pib }\OtherTok{\textless{}{-}} \FunctionTok{irf}\NormalTok{(model\_ordered, }\AttributeTok{impulse =} \ConstantTok{NULL}\NormalTok{, }\AttributeTok{response =} \StringTok{"hiato\_PIB"}\NormalTok{, }
+               \AttributeTok{n.ahead =} \DecValTok{20}\NormalTok{, }\AttributeTok{ortho =} \ConstantTok{TRUE}\NormalTok{, }\AttributeTok{boot =} \ConstantTok{TRUE}\NormalTok{, }\AttributeTok{runs =} \DecValTok{100}\NormalTok{)}
+\FunctionTok{plot}\NormalTok{(irf\_pib)}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/irf-especificas-1.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/irf-especificas-2.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/irf-especificas-3.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/irf-especificas-4.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/irf-especificas-5.pdf}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Resposta do hiato\_L a choques}
+\NormalTok{irf\_l }\OtherTok{\textless{}{-}} \FunctionTok{irf}\NormalTok{(model\_ordered, }\AttributeTok{impulse =} \ConstantTok{NULL}\NormalTok{, }\AttributeTok{response =} \StringTok{"hiato\_L"}\NormalTok{, }
+             \AttributeTok{n.ahead =} \DecValTok{20}\NormalTok{, }\AttributeTok{ortho =} \ConstantTok{TRUE}\NormalTok{, }\AttributeTok{boot =} \ConstantTok{TRUE}\NormalTok{, }\AttributeTok{runs =} \DecValTok{100}\NormalTok{)}
+\FunctionTok{plot}\NormalTok{(irf\_l)}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/irf-especificas-6.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/irf-especificas-7.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/irf-especificas-8.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/irf-especificas-9.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/irf-especificas-10.pdf}}
+
+\subsection{7.3 Decomposição da Variância
+(FEVD)}\label{decomposiuxe7uxe3o-da-variuxe2ncia-fevd}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{fevd\_res }\OtherTok{\textless{}{-}} \FunctionTok{fevd}\NormalTok{(model\_ordered, }\AttributeTok{n.ahead =} \DecValTok{20}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\subsubsection{FEVD do Hiato do PIB}\label{fevd-do-hiato-do-pib}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{fevd\_pib }\OtherTok{\textless{}{-}}\NormalTok{ fevd\_res}\SpecialCharTok{$}\NormalTok{hiato\_PIB[}\FunctionTok{c}\NormalTok{(}\DecValTok{1}\NormalTok{, }\DecValTok{5}\NormalTok{, }\DecValTok{10}\NormalTok{, }\DecValTok{20}\NormalTok{), ]}
+
+\NormalTok{fevd\_pib }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{as.data.frame}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Horizonte =} \FunctionTok{c}\NormalTok{(}\DecValTok{1}\NormalTok{, }\DecValTok{5}\NormalTok{, }\DecValTok{10}\NormalTok{, }\DecValTok{20}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{(Horizonte, }\FunctionTok{everything}\NormalTok{()) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{kable}\NormalTok{(}\AttributeTok{caption =} \StringTok{"Decomposição da Variância {-} Hiato do PIB"}\NormalTok{, }\AttributeTok{digits =} \DecValTok{3}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{kable\_styling}\NormalTok{(}\AttributeTok{bootstrap\_options =} \FunctionTok{c}\NormalTok{(}\StringTok{"striped"}\NormalTok{, }\StringTok{"hover"}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[t]{rrrrrr}
+\caption{\label{tab:fevd-pib}Decomposição da Variância - Hiato do PIB}\\
+\toprule
+Horizonte & Cambio & IPCA\_indice & Selic\_meta & hiato\_PIB & hiato\_L\\
+\midrule
+1 & 0.159 & 0.022 & 0.002 & 0.817 & 0.000\\
+5 & 0.209 & 0.084 & 0.077 & 0.622 & 0.009\\
+10 & 0.208 & 0.098 & 0.087 & 0.596 & 0.011\\
+20 & 0.208 & 0.099 & 0.091 & 0.573 & 0.029\\
+\bottomrule
+\end{longtable}
+
+\subsubsection{FEVD do Hiato do Mercado de
+Trabalho}\label{fevd-do-hiato-do-mercado-de-trabalho}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{fevd\_l }\OtherTok{\textless{}{-}}\NormalTok{ fevd\_res}\SpecialCharTok{$}\NormalTok{hiato\_L[}\FunctionTok{c}\NormalTok{(}\DecValTok{1}\NormalTok{, }\DecValTok{5}\NormalTok{, }\DecValTok{10}\NormalTok{, }\DecValTok{20}\NormalTok{), ]}
+
+\NormalTok{fevd\_l }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{as.data.frame}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Horizonte =} \FunctionTok{c}\NormalTok{(}\DecValTok{1}\NormalTok{, }\DecValTok{5}\NormalTok{, }\DecValTok{10}\NormalTok{, }\DecValTok{20}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{(Horizonte, }\FunctionTok{everything}\NormalTok{()) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{kable}\NormalTok{(}\AttributeTok{caption =} \StringTok{"Decomposição da Variância {-} Hiato L"}\NormalTok{, }\AttributeTok{digits =} \DecValTok{3}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{kable\_styling}\NormalTok{(}\AttributeTok{bootstrap\_options =} \FunctionTok{c}\NormalTok{(}\StringTok{"striped"}\NormalTok{, }\StringTok{"hover"}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[t]{rrrrrr}
+\caption{\label{tab:fevd-l}Decomposição da Variância - Hiato L}\\
+\toprule
+Horizonte & Cambio & IPCA\_indice & Selic\_meta & hiato\_PIB & hiato\_L\\
+\midrule
+1 & 0.064 & 0.028 & 0.125 & 0.059 & 0.724\\
+5 & 0.077 & 0.047 & 0.179 & 0.105 & 0.592\\
+10 & 0.106 & 0.051 & 0.226 & 0.082 & 0.536\\
+20 & 0.104 & 0.052 & 0.232 & 0.073 & 0.539\\
+\bottomrule
+\end{longtable}
+
+\subsubsection{Gráficos da FEVD}\label{gruxe1ficos-da-fevd}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{plot}\NormalTok{(fevd\_res)}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{Diagnostico_SVAR_files/figure-latex/fevd-plot-1.pdf}}
+
+\section{8. Conclusões}\label{conclusuxf5es}
+
+Note que eu consegui fazer com que as raízes fiquem \textless1 ! att
+Lucas
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\section{Informações da Sessão}\label{informauxe7uxf5es-da-sessuxe3o}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{sessionInfo}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## R version 4.5.1 (2025-06-13 ucrt)
+## Platform: x86_64-w64-mingw32/x64
+## Running under: Windows 11 x64 (build 26100)
+## 
+## Matrix products: default
+##   LAPACK version 3.12.1
+## 
+## locale:
+## [1] LC_COLLATE=Portuguese_Brazil.utf8  LC_CTYPE=Portuguese_Brazil.utf8   
+## [3] LC_MONETARY=Portuguese_Brazil.utf8 LC_NUMERIC=C                      
+## [5] LC_TIME=Portuguese_Brazil.utf8    
+## 
+## time zone: America/Sao_Paulo
+## tzcode source: internal
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] kableExtra_1.4.0  knitr_1.50        tseries_0.10-58   vars_1.6-1       
+##  [5] lmtest_0.9-40     urca_1.3-4        strucchange_1.5-4 sandwich_3.1-1   
+##  [9] zoo_1.8-14        MASS_7.3-65       dplyr_1.1.4       readxl_1.4.5     
+## 
+## loaded via a namespace (and not attached):
+##  [1] compiler_4.5.1     tidyselect_1.2.1   xml2_1.4.0         stringr_1.5.2     
+##  [5] textshaping_1.0.4  systemfonts_1.3.1  scales_1.4.0       yaml_2.3.10       
+##  [9] fastmap_1.2.0      lattice_0.22-7     R6_2.6.1           generics_0.1.4    
+## [13] curl_7.0.0         tibble_3.3.0       svglite_2.2.2      RColorBrewer_1.1-3
+## [17] pillar_1.11.1      rlang_1.1.6        quantmod_0.4.28    stringi_1.8.7     
+## [21] xfun_0.53          quadprog_1.5-8     viridisLite_0.4.2  cli_3.6.5         
+## [25] withr_3.0.2        magrittr_2.0.4     xts_0.14.1         digest_0.6.37     
+## [29] grid_4.5.1         rstudioapi_0.17.1  lifecycle_1.0.4    nlme_3.1-168      
+## [33] vctrs_0.6.5        evaluate_1.0.5     glue_1.8.0         farver_2.1.2      
+## [37] cellranger_1.1.0   rmarkdown_2.30     TTR_0.24.4         tools_4.5.1       
+## [41] pkgconfig_2.0.3    htmltools_0.5.8.1
+\end{verbatim}
+
+\end{document}

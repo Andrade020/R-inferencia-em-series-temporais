@@ -1,0 +1,390 @@
+---
+title: "Primeiro Trabalho de Econometria I"
+author: "Lucas Rafael de  Andrade"
+date: ""
+output: 
+  html_document:
+    theme: cerulean
+    highlight: tango
+    toc: true
+    toc_float: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r packages, message=FALSE}
+# #################
+# importes
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+```
+
+# Instruções Gerais {.unnumbered}
+
+- Utilize **R** para resolver as questões
+- Mostre todo o código e output relevantes
+- Interprete os resultados economicamente
+- Justifique todas as conclusões
+
+---
+
+# Questão 1 - Não-Viesamento dos Estimadores MQO
+
+## Objetivo
+
+Demonstre empiricamente que os estimadores de Mínimos Quadrados Ordinários são não-viesados, ou seja, que:
+
+$$E\left[\hat{\beta}_{0}\right]=\beta_{0} \quad \text{e} \quad E\left[\hat{\beta}_{1}\right]=\beta_{1}$$
+
+## 1. Simulação de Monte Carlo
+
+Simule 1000 amostras de tamanho $n=100$ do modelo:
+
+$$Y=2+3X+\epsilon, \quad \text{onde} \quad X \sim N(10,4) \text{ e } \epsilon \sim N(0,1)$$
+
+```{r q1_simulacao}
+# semente
+set.seed(123)
+
+# params
+beta_0_true <- 2
+beta_1_true <- 3
+n <- 100           # Tamanho de cada amostra
+n_sim <- 1000      # Número de simulações
+
+# vetores para as estimativas (vazios agora)
+beta_0_hat <- numeric(n_sim)
+beta_1_hat <- numeric(n_sim)
+
+#Monte Carlo
+for(i in 1:n_sim) {
+  # gero dados 
+  X <- rnorm(n, mean = 10, sd = 2)  # X ~ N(10, 4), onde sd = sqrt(4) = 2
+  epsilon <- rnorm(n, mean = 0, sd = 1)
+  Y <- beta_0_true + beta_1_true * X + epsilon
+  
+  # moq simples
+  modelo <- lm(Y ~ X)
+  
+  # guardo estimativas
+  beta_0_hat[i] <- coef(modelo)[1]
+  beta_1_hat[i] <- coef(modelo)[2]
+}
+```
+
+## 2. Cálculo das Médias dos Estimadores
+
+Para cada amostra, estimamos o modelo $Y=\beta_{0}+\beta_{1}X+u$ e armazenamos $\hat{\beta}_{0}$ e $\hat{\beta}_{1}$. Agora calculamos:
+
+$$\overline{\hat{\beta}}_{0}=\frac{1}{1000}\sum_{i=1}^{1000}\hat{\beta}_{0_{i}} \quad \text{e} \quad \overline{\hat{\beta}}_{1}=\frac{1}{1000}\sum_{i=1}^{1000}\hat{\beta}_{1_{i}}$$
+
+```{r q1_medias}
+#  médias das estimativas
+media_beta_0 <- mean(beta_0_hat)
+media_beta_1 <- mean(beta_1_hat)
+##################################
+# desvios padrão
+sd_beta_0 <- sd(beta_0_hat)
+sd_beta_1 <- sd(beta_1_hat)
+############################
+#tabela de resultados
+resultados_q1 <- data.frame(
+  Parâmetro = c("β₀ (Intercepto)", "β₁ (Inclinação)"),
+  `Valor Verdadeiro` = c(beta_0_true, beta_1_true),
+  `Média das Estimativas` = c(media_beta_0, media_beta_1),
+  `Desvio Padrão` = c(sd_beta_0, sd_beta_1),
+  `Viés` = c(media_beta_0 - beta_0_true, media_beta_1 - beta_1_true),
+  check.names = FALSE
+)
+
+kable(resultados_q1, digits = 6, align = 'c',
+      caption = "Resultados da Simulação de Monte Carlo (1000 replicações)") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE)
+```
+
+## 3. Visualização das Distribuições
+
+```{r q1_histogramas, fig.width=12, fig.height=5}
+par(mfrow = c(1, 2))
+
+# Histogr para beta_0
+hist(beta_0_hat, breaks = 30, prob = TRUE, 
+     main = expression(paste("Distribuição de ", hat(beta)[0])),
+     xlab = expression(hat(beta)[0]),
+     ylab = "Densidade",
+     col = "lightblue", border = "white")
+abline(v = beta_0_true, col = "red", lwd = 2, lty = 2)
+abline(v = media_beta_0, col = "blue", lwd = 2)
+curve(dnorm(x, mean = media_beta_0, sd = sd_beta_0), add = TRUE, col = "darkblue", lwd = 2)
+legend("topright", 
+       legend = c("Valor Verdadeiro", "Média das Estimativas", "Densidade Teórica"),
+       col = c("red", "blue", "darkblue"), 
+       lty = c(2, 1, 1), lwd = 2, cex = 0.8)
+
+# Histogr para beta_1
+hist(beta_1_hat, breaks = 30, prob = TRUE,
+     main = expression(paste("Distribuição de ", hat(beta)[1])),
+     xlab = expression(hat(beta)[1]),
+     ylab = "Densidade",
+     col = "lightgreen", border = "white")
+abline(v = beta_1_true, col = "red", lwd = 2, lty = 2)
+abline(v = media_beta_1, col = "blue", lwd = 2)
+curve(dnorm(x, mean = media_beta_1, sd = sd_beta_1), add = TRUE, col = "darkgreen", lwd = 2)
+legend("topright", 
+       legend = c("Valor Verdadeiro", "Média das Estimativas", "Densidade Teórica"),
+       col = c("red", "blue", "darkgreen"), 
+       lty = c(2, 1, 1), lwd = 2, cex = 0.8)
+
+par(mfrow = c(1, 1))
+```
+
+## 4. Conclusão sobre o Não-Viesamento
+
+### Análise Quantitativa
+
+Com base nos resultados da simulação de Monte Carlo com `r n_sim` replicações:
+
+**Para o intercepto ($\beta_0$):**
+
+- Valor verdadeiro: $\beta_0 = `r beta_0_true`$
+- Média das estimativas: $\overline{\hat{\beta}}_0 = `r round(media_beta_0, 6)`$
+- Viés estimado: $\overline{\hat{\beta}}_0 - \beta_0 = `r round(media_beta_0 - beta_0_true, 6)`$
+- Viés relativo: `r round(abs((media_beta_0 - beta_0_true) / beta_0_true) * 100, 4)`%
+
+**Para a inclinação ($\beta_1$):**
+
+- Valor verdadeiro: $\beta_1 = `r beta_1_true`$
+- Média das estimativas: $\overline{\hat{\beta}}_1 = `r round(media_beta_1, 6)`$
+- Viés estimado: $\overline{\hat{\beta}}_1 - \beta_1 = `r round(media_beta_1 - beta_1_true, 6)`$
+- Viés relativo: `r round(abs((media_beta_1 - beta_1_true) / beta_1_true) * 100, 4)`%
+
+### Interpretação
+
+`r if(abs(media_beta_0 - beta_0_true) < 0.01 & abs(media_beta_1 - beta_1_true) < 0.01) {"Os resultados demonstram claramente que os estimadores MQO são **não-viesados**. As médias das estimativas estão extremamente próximas dos valores verdadeiros dos parâmetros, com viés praticamente nulo."} else {"Os resultados sugerem que os estimadores MQO apresentam não-viesamento, embora haja algum desvio devido à aleatoriedade amostral."}`
+
+`r if(abs(media_beta_0 - beta_0_true) < 0.01) {paste0("Para o intercepto, o viés de ", round(media_beta_0 - beta_0_true, 6), " é desprezível e pode ser atribuído a erros de arredondamento computacional e variabilidade amostral.")}`
+
+`r if(abs(media_beta_1 - beta_1_true) < 0.01) {paste0("Para o coeficiente angular, o viés de ", round(media_beta_1 - beta_1_true, 6), " também é negligenciável, confirmando a propriedade teórica do não-viesamento.")}`
+
+**Conclusão Final:** Os resultados empíricos **confirmam** a propriedade teórica de que $E[\hat{\beta}_0] = \beta_0$ e $E[\hat{\beta}_1] = \beta_1$, demonstrando que os estimadores MQO são não-viesados sob as hipóteses clássicas do modelo de regressão linear.
+
+---
+
+# Questão 2 - Propriedades dos Resíduos MQO
+
+## Objetivo
+
+Demonstre que os resíduos MQO possuem as seguintes propriedades:
+
+$$E\left[\hat{\epsilon}_{i}\right]=0 \quad \text{e} \quad \operatorname{Cov}\left(X_{i}, \hat{\epsilon}_{i}\right)=0$$
+
+## 1. Geração dos Dados
+
+Gere dados do modelo: $Y=2+3X+\epsilon$
+
+```{r q2_setup}
+set.seed(456)
+
+# Parâms
+n <- 100
+n_rep <- 100  # Número de repetições
+
+# Vetores nulos pra colocar results
+media_residuos <- numeric(n_rep)
+cov_X_residuos <- numeric(n_rep)
+cor_X_residuos <- numeric(n_rep)
+```
+
+## 2. Estimação e Cálculo dos Resíduos
+
+Para cada repetição, estimamos o modelo e calculamos os resíduos $\hat{\epsilon}_{i}$:
+
+```{r q2_simulacao}
+# Loop de simulação
+for(j in 1:n_rep) {
+  # Gerar dados
+  X <- rnorm(n, mean = 10, sd = 2)
+  epsilon <- rnorm(n, mean = 0, sd = 1)
+  Y <- 2 + 3 * X + epsilon
+  
+  # Estimar  mqo ############
+  modelo <- lm(Y ~ X)
+  
+  # resíduos ##################
+  residuos <- residuals(modelo)
+  
+  # estatísticas ####################
+  media_residuos[j] <- mean(residuos)
+  cov_X_residuos[j] <- cov(X, residuos)
+  cor_X_residuos[j] <- cor(X, residuos)
+}
+```
+
+## 3. Cálculo das Médias Agregadas
+
+Calculamos:
+
+$$\overline{\bar{\epsilon}}=\frac{1}{100}\sum_{j=1}^{100}\overline{\hat{\epsilon}}_{j} \quad \text{e} \quad \overline{\operatorname{Cov}(X, \hat{\epsilon})}=\frac{1}{100}\sum_{j=1}^{100}\operatorname{Cov}\left(X_{j}, \hat{\epsilon}_{j}\right)$$
+
+```{r q2_medias}
+#  médias agregadas #########################
+media_media_residuos <- mean(media_residuos)
+media_cov_X_residuos <- mean(cov_X_residuos)
+media_cor_X_residuos <- mean(cor_X_residuos)
+
+# sds ################################
+sd_media_residuos <- sd(media_residuos)
+sd_cov_X_residuos <- sd(cov_X_residuos)
+
+#  tabela de resultados ###########################3
+resultados_q2 <- data.frame(
+  Propriedade = c("E[ε̂ᵢ]", "Cov(X, ε̂)", "Cor(X, ε̂)"),
+  `Valor Teórico` = c(0, 0, 0),
+  `Média Observada` = c(media_media_residuos, media_cov_X_residuos, media_cor_X_residuos),
+  `Desvio Padrão` = c(sd_media_residuos, sd_cov_X_residuos, sd(cor_X_residuos)),
+  check.names = FALSE
+)
+
+kable(resultados_q2, digits = 8, align = 'c',
+      caption = "Propriedades dos Resíduos MQO (100 replicações)") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE)
+```
+
+## 4. Visualização das Propriedades
+
+```{r q2_visualizacao, fig.width=12, fig.height=5}
+par(mfrow = c(1, 2))
+
+# Histogr da média dos resíduos
+hist(media_residuos, breaks = 20, prob = TRUE,
+     main = expression(paste("Distribuição de ", bar(epsilon))),
+     xlab = "Média dos Resíduos",
+     ylab = "Densidade",
+     col = "lightcoral", border = "white")
+abline(v = 0, col = "red", lwd = 2, lty = 2)
+abline(v = media_media_residuos, col = "blue", lwd = 2)
+legend("topright", 
+       legend = c("Valor Teórico (0)", "Média Observada"),
+       col = c("red", "blue"), 
+       lty = c(2, 1), lwd = 2, cex = 0.8)
+
+# Histogr da covariância
+hist(cov_X_residuos, breaks = 20, prob = TRUE,
+     main = "Distribuição de Cov(X, ε̂)",
+     xlab = "Covariância",
+     ylab = "Densidade",
+     col = "lightyellow", border = "white")
+abline(v = 0, col = "red", lwd = 2, lty = 2)
+abline(v = media_cov_X_residuos, col = "blue", lwd = 2)
+legend("topright", 
+       legend = c("Valor Teórico (0)", "Média Observada"),
+       col = c("red", "blue"), 
+       lty = c(2, 1), lwd = 2, cex = 0.8)
+
+par(mfrow = c(1, 1))
+```
+
+## 5. Demonstração Algébrica Complementar
+
+```{r q2_exemplo_unico}
+# Ex com uma amostra específica para demonstração detalhada
+set.seed(789)
+X_demo <- rnorm(100, mean = 10, sd = 2)
+epsilon_demo <- rnorm(100, mean = 0, sd = 1)
+Y_demo <- 2 + 3 * X_demo + epsilon_demo
+
+# Estimar 
+modelo_demo <- lm(Y_demo ~ X_demo)
+residuos_demo <- residuals(modelo_demo)
+
+# Ver propriedades
+soma_residuos <- sum(residuos_demo)
+soma_X_residuos <- sum(X_demo * residuos_demo)
+```
+
+### Verificação Algébrica
+
+Para uma amostra específica, verificamos:
+
+**Propriedade 1:** $\sum_{i=1}^{n} \hat{\epsilon}_i = 0$
+
+- Soma dos resíduos: `r formatC(soma_residuos, format = "e", digits = 10)`
+- Média dos resíduos: `r formatC(mean(residuos_demo), format = "e", digits = 10)`
+
+**Propriedade 2:** $\sum_{i=1}^{n} X_i \hat{\epsilon}_i = 0$ (Ortogonalidade)
+
+- Soma de $X_i \cdot \hat{\epsilon}_i$: `r formatC(soma_X_residuos, format = "e", digits = 10)`
+- Covariância amostral: `r formatC(cov(X_demo, residuos_demo), format = "e", digits = 10)`
+- Correlação: `r formatC(cor(X_demo, residuos_demo), format = "e", digits = 10)`
+
+## 6. Conclusão sobre as Propriedades dos Resíduos
+
+### Análise Quantitativa
+
+Com base em `r n_rep` replicações:
+
+**Propriedade 1: $E[\hat{\epsilon}_i] = 0$**
+
+- Valor teórico: 0
+- Média observada: `r formatC(media_media_residuos, format = "e", digits = 10)`
+- Desvio absoluto: `r formatC(abs(media_media_residuos), format = "e", digits = 10)`
+
+**Propriedade 2: $\operatorname{Cov}(X, \hat{\epsilon}) = 0$**
+
+- Valor teórico: 0
+- Média observada: `r formatC(media_cov_X_residuos, format = "e", digits = 10)`
+- Desvio absoluto: `r formatC(abs(media_cov_X_residuos), format = "e", digits = 10)`
+
+### Interpretação
+
+`r if(abs(media_media_residuos) < 1e-10 & abs(media_cov_X_residuos) < 1e-10) {"**Os resultados confirmam perfeitamente as propriedades teóricas dos resíduos MQO.** Ambas as estatísticas estão na ordem de 10⁻¹⁰ ou menor, o que é desprezível e atribuível exclusivamente a erros de arredondamento numérico computacional."} else if(abs(media_media_residuos) < 1e-5 & abs(media_cov_X_residuos) < 1e-5) {"**Os resultados confirmam as propriedades teóricas dos resíduos MQO.** Os valores observados são extremamente próximos de zero, com desvios negligenciáveis que podem ser atribuídos à variabilidade amostral e precisão numérica."} else {"**Os resultados sugerem conformidade com as propriedades teóricas dos resíduos MQO**, embora haja alguma variação devido à aleatoriedade amostral."}`
+
+### Implicações Econométricas
+
+1. **Média zero dos resíduos:** Esta propriedade garante que o modelo não apresenta viés sistemático, ou seja, os erros se cancelam em média. `r if(abs(media_media_residuos) < 1e-5) {"✓ Verificado empiricamente."}`
+
+2. **Ortogonalidade com X:** A covariância nula entre X e os resíduos implica que:
+   - Toda a informação de X foi utilizada para explicar Y
+   - Não há correlação sistemática entre o regressor e os erros
+   - As condições de primeira ordem do MQO são satisfeitas
+   - `r if(abs(media_cov_X_residuos) < 1e-5) {"✓ Verificado empiricamente."}`
+
+3. **Correlação nula:** A correlação média de `r round(media_cor_X_residuos, 10)` confirma a independência linear entre X e os resíduos. `r if(abs(media_cor_X_residuos) < 1e-5) {"✓ Verificado empiricamente."}`
+
+**Conclusão Final:** Os resultados empíricos **confirmam** que os resíduos MQO satisfazem as propriedades fundamentais de $E[\hat{\epsilon}_i] = 0$ e $\operatorname{Cov}(X_i, \hat{\epsilon}_i) = 0$, validando as condições de primeira ordem do estimador de Mínimos Quadrados Ordinários.
+
+---
+
+# Conclusão Geral {.unnumbered}
+
+Este trabalho demonstrou empiricamente duas propriedades fundamentais dos estimadores de Mínimos Quadrados Ordinários:
+
+1. **Não-viesamento:** Os estimadores $\hat{\beta}_0$ e $\hat{\beta}_1$ são não-viesados, com $E[\hat{\beta}_j] = \beta_j$
+
+2. **Propriedades dos resíduos:** Os resíduos MQO possuem média zero e são ortogonais aos regressores
+
+Estas propriedades são essenciais para a validade da inferência estatística em modelos de regressão linear e constituem a base teórica da econometria clássica.
+
+
+# Agradecimentos
+
+Gostaria de agradecer primeiro ao Fernando da Silva (YT: Anal. Macro) pelas incríveis aulas, bem como a Professora Vanessa Manhães(YT: homônimo). 
+
+Também agradecer aos desenvolvedores da IA llama-2-7b-chat.Q4_K_M
+
+https://stat.ethz.ch/R-manual/R-patched/library/stats/html/residuals.html
+
+https://www.statmethods.net/graphs/
+
+https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html
+
+
+"A invenção, devo modestamente admiti-lo, não consiste em criar disciplinadamente, mas sim em criar a partir do caos." - Mary Shelley
+
+
